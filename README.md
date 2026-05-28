@@ -269,6 +269,11 @@ Agent 会执行 `login` 命令并将凭据保存至 `skills/qnap-openlist/config
 ```
 "帮我检查一下 qnap-agent 有没有新版本"
 ```
+---
+## 交流群
+* 群名称： Al Agent For QNAP QQ群号： 1106652839
+* 可以交流各种QNAP技术、技巧、问题。
+<img src="https://raw.githubusercontent.com/iranee/qnap-agent/refs/heads/main/ai-agent-for-qnap.jpg" alt="QQ GRPUP" width="500"/>
 
 ---
 
@@ -380,6 +385,9 @@ cat /share/CACHEDEV1_DATA/.qpkg/qnap-agent/log/qnap-agent.log
 - **测试验证**：在不同型号 NAS 上测试并反馈兼容性
 
 ---
+
+blob:https://github.com/64e88de8-2aa4-4118-a348-ba4718094c91
+
 
 ## 许可证
 
