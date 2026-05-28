@@ -181,11 +181,11 @@ QNAP 官方推出了 [MCP Assistant](https://www.qnap.com/zh-cn/software/mcp-ass
    帮我配置 MCP Assistant 连接，NAS IP 是 192.168.x.x，Token 是 xxxx
    ```
 
-   Agent 会读取内置的 MCP 技能文档，自动完成配置并重启生效。无需手动编辑配置文件。
+   Agent 会读取内置的 QNAP MCP 技能文档，无需重启 Agent 即可使用。
 
 > **安全提示：** Token 代表完整用户权限，请勿将其写入代码仓库或公开场合。MCP 服务使用 HTTP 明文（8442 端口），建议仅在局域网内使用。
 
-配置完成后，直接向 Agent 提问即可，无需手动指定调用哪个工具：
+配置完成后，向 Agent 提问即可，指明以后调用QNAP MCP工具操作：
 
 ```
 "帮我看看 NAS 目前磁盘用了多少？"
@@ -228,7 +228,7 @@ QNAP Agent 已完整集成对 [OpenList](https://github.com/OpenListTeam/OpenLis
 帮我配置 OpenList 连接，地址是 http://192.168.x.x:5244，用户名 admin，密码 xxx
 ```
 
-Agent 会执行 `login` 命令并将凭据保存至 `skills/qnap-openlist/config.json`。后续所有操作无需重复认证。
+Agent 会执行 `login` 命令并将凭据保存至 `skills/qnap-openlist/openlist-config.json`。后续所有操作无需重复认证。
 
 配置完成后，可以直接向 Agent 下达网盘管理指令：
 
