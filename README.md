@@ -377,11 +377,6 @@ cat /share/CACHEDEV1_DATA/.qpkg/qnap-agent/log/qnap-agent.log
 - **测试验证**：在不同型号 NAS 上测试并反馈兼容性
 
 ---
-
-blob:https://github.com/64e88de8-2aa4-4118-a348-ba4718094c91
-
-
----
 ## 交流群
 * 群名称： Al Agent For QNAP QQ群号： 1106652839
 * 可以交流各种QNAP技术、技巧、问题。
