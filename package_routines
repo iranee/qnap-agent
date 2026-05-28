@@ -1,0 +1,227 @@
+#!/bin/sh
+QPKG_NAME="qnap-agent"
+CONF=/etc/config/qpkg.conf
+PR_LOG="/tmp/qnap-agent-log.txt"
+
+pr_log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [PR] $1" >> "$PR_LOG"
+}
+
+
+pkg_pre_install() {
+    pr_log "=== 预安装开始 (备份阶段) ==="
+    
+    CURRENT_ROOT="${SYS_QPKG_DIR:-$(/sbin/getcfg ${QPKG_NAME} Install_Path -f ${CONF})}"
+    if [ -z "${CURRENT_ROOT}" ]; then
+        CURRENT_ROOT="/share/CACHEDEV1_DATA/.qpkg/${QPKG_NAME}"
+    fi
+    
+    source_dir="${CURRENT_ROOT}/workspace"
+    backup_dir="/tmp/qnap-agent-preserve"
+    
+    rm -rf "$backup_dir"
+    mkdir -p "$backup_dir/identity" "$backup_dir/memory" "$backup_dir/skills"
+
+    pr_log "预安装: 正在扫描用户数据 ${source_dir}..."
+    
+    rescued=0
+    if [ -d "$source_dir" ]; then
+        # 备份 .md 身份文件
+        for f in "$source_dir"/*.md; do
+            if [ -f "$f" ]; then
+                cp -p "$f" "$backup_dir/identity/" 2>/dev/null
+                pr_log "备份: 已保存身份文件 $(basename $f)"
+                rescued=1
+            fi
+        done
+        
+        # 备份记忆文件
+        if [ -d "$source_dir/memory" ]; then
+            cp -Rp "$source_dir/memory/." "$backup_dir/memory/" 2>/dev/null
+            pr_log "备份: 已保存 memory 目录"
+            rescued=1
+        fi
+        
+        # 备份自定义 Skills (排除系统技能)
+        if [ -d "$source_dir/skills" ]; then
+            for s in "$source_dir/skills"/*; do
+                if [ -d "$s" ]; then
+                    s_name=$(basename "$s")
+                    case "$s_name" in
+                        qnap-*) ;; # 跳过系统技能
+                        *) 
+                            cp -Rp "$s" "$backup_dir/skills/" 2>/dev/null
+                            pr_log "备份: 已保存技能 $s_name"
+                            rescued=1
+                        ;;
+                    esac
+                fi
+            done
+        fi
+    fi
+
+    if [ "$rescued" -eq 0 ]; then
+        pr_log "预安装: 未发现用户数据 (首次安装或空目录)"
+    fi
+    pr_log "=== 预安装结束 ==="
+}
+
+# ---------------------------------------------------------------------------
+# 2. 安装阶段 (解压完成后执行)
+# ---------------------------------------------------------------------------
+pkg_install() {
+    pr_log "=== 安装阶段开始 (构建与恢复) ==="
+    
+    QPKG_ROOT="${SYS_QPKG_DIR:-$(/sbin/getcfg ${QPKG_NAME} Install_Path -f ${CONF})}"
+    if [ -z "${QPKG_ROOT}" ]; then
+        QPKG_ROOT="/share/CACHEDEV1_DATA/.qpkg/${QPKG_NAME}"
+    fi
+    pr_log "安装: 确认安装路径 -> ${QPKG_ROOT}"
+    
+    app_root="${QPKG_ROOT}/workspace"
+
+    mkdir -p "${app_root}" "${app_root}/sessions" "${app_root}/memory" "${app_root}/state" \
+        "${app_root}/cron" "${app_root}/skills" "${QPKG_ROOT}/update" "${QPKG_ROOT}/backup" \
+        "${QPKG_ROOT}/run" "${QPKG_ROOT}/log" "${app_root}/scripts" "${app_root}/tools"
+
+    chmod 0755 "${QPKG_ROOT}/picoclaw" 2>/dev/null || true
+    chmod 0755 "${QPKG_ROOT}/picoclaw-launcher" 2>/dev/null || true
+    chmod 0755 "${QPKG_ROOT}/qnap-agent.sh"
+    chmod 0755 "${QPKG_ROOT}/init-system.sh"
+    chmod 0755 "${QPKG_ROOT}/watchdog.sh"
+
+    pr_log "安装: 正在从备份区恢复用户数据..."
+    restore_dir="/tmp/qnap-agent-preserve"
+        for f in "$restore_dir/identity"/*.md; do
+            if [ -f "$f" ]; then
+                fname=$(basename "$f")
+                cp -p "$f" "${app_root}/${fname}"
+                pr_log "恢复: 已用用户版本覆盖新默认文件: ${fname}"
+            fi
+        done
+        if [ -d "$restore_dir/memory" ]; then
+            cp -Rp "$restore_dir/memory/." "${app_root}/memory/"
+            pr_log "恢复: 已恢复 memory 目录"
+        fi
+        # 恢复自定义 Skills
+        if [ -d "$restore_dir/skills" ]; then
+            cp -Rp "$restore_dir/skills/." "${app_root}/skills/"
+            pr_log "恢复: 已恢复自定义技能"
+        fi
+        rm -rf "$restore_dir"
+    else
+        pr_log "安装: 未发现备份数据 (确认为首次安装)"
+    fi
+
+    # 4. 基础配置生成
+    cfg="${app_root}/config.json"
+    if [ ! -f "$cfg" ]; then
+        if [ -f "${QPKG_ROOT}/config/config.json.tpl" ]; then
+            pr_log "安装: 正在生成 config.json..."
+            cp "${QPKG_ROOT}/config/config.json.tpl" "${cfg}"
+            sed "s#__QPKG_ROOT__#${QPKG_ROOT}#g" "${cfg}" > "${cfg}.tmp" && mv "${cfg}.tmp" "${cfg}"
+            pr_log "安装: 配置文件已生成."
+        fi
+    else
+        pr_log "安装: 发现现有 config.json，予以保留."
+    fi
+
+    # 5. 执行初始化 (onboard) & 生成元数据
+    run_picoclaw_onboard_if_needed "${QPKG_ROOT}"
+    repair_qnap_skill_metadata "${QPKG_ROOT}"
+    
+    pr_log "=== 安装阶段结束 ==="
+}
+
+# ---------------------------------------------------------------------------
+# 辅助：首次运行初始化
+# ---------------------------------------------------------------------------
+run_picoclaw_onboard_if_needed() {
+    QPKG_ROOT="$1"
+    app_root="${QPKG_ROOT}/workspace"
+    onboard_marker="${app_root}/state/onboarded"
+    picoclaw_bin="${QPKG_ROOT}/picoclaw"
+
+    if [ -f "${onboard_marker}" ]; then
+        pr_log "初始化: 发现标记文件，跳过 onboard."
+        return 0
+    fi
+
+    if [ ! -f "${picoclaw_bin}" ]; then
+        pr_log "初始化: 未找到二进制文件 ${picoclaw_bin}，跳过."
+        return 1
+    fi
+
+    pr_log "初始化: 正在执行 picoclaw onboard..."
+    HOME="/root" "${picoclaw_bin}" onboard >> ${QPKG_ROOT}/log/qnap-agent-init.log 2>&1
+    rc=$?
+    
+    if [ $rc -eq 0 ]; then
+        pr_log "初始化: onboard 成功，正在检查生成的技能..."
+        
+        src_skills="/root/.picoclaw/workspace/skills"
+        if [ -d "$src_skills" ]; then
+            mkdir -p "${app_root}/skills"
+            cp -Rp "$src_skills/." "${app_root}/skills/" 2>/dev/null
+            rm -rf "/root/.picoclaw" 
+            pr_log "初始化: 已从 /root/.picoclaw 导入技能"
+        fi
+        
+        mkdir -p "${app_root}/state"
+        echo "${QPKG_VER:-unknown}" > "${onboard_marker}"
+        pr_log "初始化: 完成."
+    else
+        pr_log "初始化: 失败 (代码=${rc})"
+    fi
+    return $rc
+}
+
+# ---------------------------------------------------------------------------
+# 辅助：生成元数据
+# ---------------------------------------------------------------------------
+repair_qnap_skill_metadata() {
+    QPKG_ROOT="$1"
+    skills_dir="${QPKG_ROOT}/workspace/skills"
+    [ -d "${skills_dir}" ] || return 0
+
+    install_ts=$(date +%s)
+    for skill_dir in "${skills_dir}"/qnap-*; do
+        [ -d "${skill_dir}" ] || continue
+        meta="${skill_dir}/.skill-origin.json"
+        if [ ! -f "${meta}" ]; then
+            skill_name=$(basename "${skill_dir}")
+            cat > "${meta}" << EOF
+{"version":1, "origin_kind":"qnap_agent_builtin", "slug":"${skill_name}", "installed_at":${install_ts}}
+EOF
+        fi
+        chmod 600 "${meta}" 2>/dev/null || true
+    done
+}
+
+# ---------------------------------------------------------------------------
+# 3. 安装后处理
+# ---------------------------------------------------------------------------
+pkg_post_install() {
+    pr_log "=== 安装后处理开始 ==="
+    QPKG_ROOT=$(/sbin/getcfg ${QPKG_NAME} Install_Path -f ${CONF})
+    
+    ln -sf "${QPKG_ROOT}/qnap-agent.sh" /etc/init.d/qnap-agent 2>/dev/null || true
+    pr_log "安装后: 启动脚本已链接."
+    
+    if [ -f "${QPKG_ROOT}/init-system.sh" ]; then
+        "${QPKG_ROOT}/init-system.sh" "${QPKG_ROOT}" >> ${QPKG_ROOT}/log/qnap-agent-init.log 2>&1 &
+        pr_log "安装后: 系统初始化脚本已在后台运行."
+    fi
+    pr_log "=== 安装后处理结束 ==="
+}
+
+pkg_pre_remove() {
+    pr_log "卸载前: 正在停止服务..."
+    QPKG_ROOT=$(/sbin/getcfg ${QPKG_NAME} Install_Path -f ${CONF})
+    "${QPKG_ROOT}/qnap-agent.sh" stop 2>/dev/null || true
+    rm -f /etc/init.d/qnap-agent 2>/dev/null || true
+}
+
+pkg_remove() {
+    pr_log "卸载: 已删除所有文件."
+}
