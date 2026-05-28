@@ -267,13 +267,6 @@ Agent 会执行 `login` 命令并将凭据保存至 `skills/qnap-openlist/config
 ```
 "帮我检查一下 qnap-agent 有没有新版本"
 ```
----
-## 交流群
-* 群名称： Al Agent For QNAP QQ群号： 1106652839
-* 可以交流各种QNAP技术、技巧、问题。
-<img src="https://raw.githubusercontent.com/iranee/qnap-agent/refs/heads/main/ai-agent-for-qnap.jpg" alt="QQ GRPUP" width="500"/>
-
----
 
 ## 目录结构
 
@@ -387,12 +380,11 @@ cat /share/CACHEDEV1_DATA/.qpkg/qnap-agent/log/qnap-agent.log
 blob:https://github.com/64e88de8-2aa4-4118-a348-ba4718094c91
 
 
-## 许可证
-
-MIT License — 详见 [LICENSE](LICENSE)
+---
+## 交流群
+* 群名称： Al Agent For QNAP QQ群号： 1106652839
+* 可以交流各种QNAP技术、技巧、问题。
+<img src="https://raw.githubusercontent.com/iranee/qnap-agent/refs/heads/main/ai-agent-for-qnap.jpg" alt="QQ GRPUP" width="500"/>
 
 ---
-
-*QNAP Agent 是独立开源项目，与 QNAP Systems, Inc. 没有官方关联。*
-
 ![Star History Chart](https://api.star-history.com/svg?repos=iranee/qnap-agent&type=Date)
