@@ -101,8 +101,6 @@ QNAP QTS 是 QNAP 基于 Linux 内核深度定制的闭源系统，与标准 Lin
    - 添加至少一个 LLM 模型并设为默认
    - 在 Launcher 中启动 Gateway
 
-> App Center 官方上架版本正在审核中，上架后可直接搜索安装。
-
 ---
 
 ## 配置 LLM 模型
