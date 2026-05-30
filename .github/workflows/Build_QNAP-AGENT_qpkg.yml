@@ -78,9 +78,12 @@ jobs:
             RAW_BODY="更新至 v${VERSION}"
           fi
 
+          # 过滤 GoReleaser 署名行
+          CLEAN_BODY=$(echo "$RAW_BODY" | grep -v -i "Released by \[GoReleaser\]" | grep -v -i "released by goreleaser")
+
           {
             echo "notes<<EOF"
-            echo "$RAW_BODY"
+            echo "$CLEAN_BODY"
             echo "EOF"
           } >> $GITHUB_OUTPUT
           echo "更新日志已获取"
@@ -336,8 +339,8 @@ jobs:
             - PicoClaw 上游版本: v${{ steps.version.outputs.version }}
             - Commit: ${{ github.sha }}
             - PicoClaw 上游仓库: https://github.com/sipeed/picoclaw
-          draft: false
-          prerelease: true
+          draft: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
