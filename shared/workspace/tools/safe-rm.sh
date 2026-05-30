@@ -1,7 +1,15 @@
 #!/bin/sh
 ########################################
 # safe-rm.sh - QNAP Agent 安全删除工具
-# 版本: 3.1
+# 版本: 3.3
+#
+# 更新记录:
+#   v3.3 空目录清理：先删除 .@__thumb，再逐层 rmdir 所有空目录，不残留空父目录
+#   v3.2 目录合并逻辑：回收站已有同名目录时，自动对比目录结构并重命名冲突文件
+#   v3.1 目录安全删除：检测到回收站同名目录则报错退出（原逻辑）
+#        ↓ 实际需求改为 v3.2 的合并逻辑
+#   v3.0 目录操作支持：支持直接移动整个目录到回收站
+#   v2.x 文件重命名：[n] 版本号机制避免覆盖
 #
 # 用法：
 #   safe-rm.sh [-r] [-f] <文件> [文件2 ...]      删除（进回收站）
@@ -142,6 +150,9 @@ find_share_root() {
     local candidate name
     case "$abs" in
         /share/CACHEDEV*_DATA/*/*)
+            # 路径可能是物理路径（/share/CACHEDEV2_DATA/共享文档/...）
+            # 或已经过 readlink-f 解析的路径（/share/CACHEDEV2_DATA/共享文档/...）
+            # 需要判断第二层目录名是否为软链接，从而确定共享文件夹
             candidate=$(echo "$abs" | sed 's|\(/share/CACHEDEV[^/]*_DATA/[^/]*\)/.*|\1|')
             name=$(basename "$candidate")
             if [ -L "/share/$name" ]; then
@@ -150,19 +161,31 @@ find_share_root() {
                 echo ""
             fi
             ;;
+        /share/*/*)
+            # 支持通过软链接名直接访问的路径，如 /share/共享文档/...
+            # 软链接可能指向相对路径（如 CACHEDEV2_DATA/共享文档）或绝对路径
+            # readlink -f 会解析软链接到完整路径，需从中提取共享根目录
+            local first_part real_path share_name
+            first_part=$(echo "$abs" | sed 's|\(/share/[^/]*\)/.*|\1|')
+            if [ -L "$first_part" ]; then
+                real_path=$(readlink -f "$first_part" 2>/dev/null)
+                # 从 real_path 提取共享根目录（/share/<name>）
+                # real_path 可能是 /share/CACHEDEV2_DATA/共享文档 或相对路径 CACHEDEV2_DATA/共享文档
+                share_name=$(basename "$first_part")
+                # 构造标准格式的共享根路径
+                if echo "$real_path" | grep -q '^/share/'; then
+                    # 绝对路径：提取 /share/<name> 部分
+                    echo "$real_path" | sed "s|\(/share/$share_name\).*|\1|"
+                else
+                    # 相对路径：拼接 /share/<name>
+                    echo "/share/$share_name"
+                fi
+            else
+                echo ""
+            fi
+            ;;
         *)
-            case "$abs" in
-                /share/*/*)
-                    local first_part
-                    first_part=$(echo "$abs" | sed 's|\(/share/[^/]*\)/.*|\1|')
-                    if [ -L "$first_part" ]; then
-                        readlink -f "$first_part" 2>/dev/null
-                    else
-                        echo ""
-                    fi
-                    ;;
-                *) echo "" ;;
-            esac
+            echo ""
             ;;
     esac
 }
@@ -446,6 +469,76 @@ get_recycle_name() {
     done
 }
 
+# ══════════════════════════════════════════════
+# 合并目录到回收站（同名目录已存在时调用）
+# 对比两个目录树，同名文件在回收站中重命名后移入
+# ══════════════════════════════════════════════
+
+merge_dirs_to_recycle() {
+    local src_dir="$1"          # 原始目录路径
+    local recycle_dir="$2"      # 回收站中同名目录路径
+    local share_root="$3"       # 共享文件夹根路径
+    local filename
+    filename=$(basename "$src_dir")
+
+    # 递归遍历原始目录中的每个文件/目录
+    find "$src_dir" -print0 2>/dev/null | while IFS= read -r -d '' item; do
+        local rel_path="${item#$src_dir}"   # 相对路径（含开头的 /）
+        local abs_dest="${recycle_dir}${rel_path}"
+        local abs_dest_dir
+        abs_dest_dir=$(dirname "$abs_dest")
+
+        if [ -d "$item" ]; then
+            # 子目录：直接在回收站同名目录中创建对应子目录结构
+            mkdir -p "$abs_dest" 2>/dev/null
+        else
+            # 文件：确保父目录存在
+            mkdir -p "$abs_dest_dir" 2>/dev/null
+
+            if [ -f "$abs_dest" ]; then
+                # 回收站已有同名文件 → 重命名后移入（[1], [2]...）
+                local base dest_name
+                base=$(basename "$item")
+                dest_name=$(get_recycle_name "$abs_dest_dir" "$base")
+                log_info "  重命名 → ${dest_name}（已存在同名）"
+                if mv "$item" "${abs_dest_dir}/${dest_name}" 2>/dev/null; then
+                    RECYCLED_COUNT=$((RECYCLED_COUNT+1))
+                else
+                    log_error "移动失败: $item"
+                    ERROR_COUNT=$((ERROR_COUNT+1))
+                fi
+            else
+                # 回收站无同名文件 → 直接移动
+                if mv "$item" "$abs_dest" 2>/dev/null; then
+                    RECYCLED_COUNT=$((RECYCLED_COUNT+1))
+                else
+                    log_error "移动失败: $item"
+                    ERROR_COUNT=$((ERROR_COUNT+1))
+                fi
+            fi
+        fi
+    done
+
+    # ── 清理源目录中的空子目录（从内到外逐层删除）────────────────
+    # 第1步：删除所有 .@__thumb（QNAP缩略图缓存目录）
+    find "$src_dir" -name ".@__thumb" -type d 2>/dev/null | while IFS= read -r td; do
+        rmdir "$td" 2>/dev/null && log_info "  清理缩略图缓存: $td"
+    done
+
+    # 第2步：从内到外逐层删除所有空目录
+    find "$src_dir" -depth -type d 2>/dev/null | while IFS= read -r empty_dir; do
+        rmdir "$empty_dir" 2>/dev/null && log_info "  清理空目录: $empty_dir"
+    done
+
+    # 第3步：尝试删除源目录自身
+    if rmdir "$src_dir" 2>/dev/null; then
+        log_info "→ @Recycle: $filename（目录合并）"
+        RECYCLED_COUNT=$((RECYCLED_COUNT+1))
+    else
+        log_info "  目录仍有残留内容，已保留: $src_dir"
+    fi
+}
+
 move_share_file() {
     local target="$1"
     local abs share_root filename recycle_dir recycle_name
@@ -456,9 +549,36 @@ move_share_file() {
     fi
 
     if [ -d "$target" ]; then
-        log_error "共享文件夹下禁止整体删除目录: $target"
-        log_info  "  改用: find \"$target\" -type f | xargs -I{} tools/safe-rm.sh {}"
-        ERROR_COUNT=$((ERROR_COUNT+1)); return 1
+        # 目录：同名目录已存在时，遍历对比同名文件并重命名后移入
+        abs=$(abs_path_of "$target")
+        if [ "$abs" = "ERROR_INVALID_PATH" ] || [ -z "$abs" ]; then
+            log_error "无法解析目录的绝对路径: $target"
+            ERROR_COUNT=$((ERROR_COUNT+1)); return 1
+        fi
+
+        share_root=$(find_share_root "$abs")
+        if [ -z "$share_root" ]; then
+            log_error "无法定位所属共享文件夹（路径: $abs）"
+            ERROR_COUNT=$((ERROR_COUNT+1)); return 1
+        fi
+        filename=$(basename "$abs")
+        recycle_target="${share_root}/@Recycle/${filename}"
+
+        if [ -e "$recycle_target" ]; then
+            # 同名目录已存在 → 对比结构，同名文件重命名后再移入
+            log_info "回收站已有同名目录，将对比并合并: $filename"
+            merge_dirs_to_recycle "$abs" "$recycle_target" "$share_root"
+            return
+        fi
+
+        if mv "$abs" "${share_root}/@Recycle/${filename}" 2>/dev/null; then
+            log_info "→ @Recycle: $abs (目录)"
+            RECYCLED_COUNT=$((RECYCLED_COUNT+1))
+        else
+            log_error "移动目录失败（权限不足？）: $abs"
+            ERROR_COUNT=$((ERROR_COUNT+1)); return 1
+        fi
+        return
     fi
 
     abs=$(abs_path_of "$target")
