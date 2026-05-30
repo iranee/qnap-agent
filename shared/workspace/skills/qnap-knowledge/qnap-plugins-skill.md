@@ -300,34 +300,283 @@ ss -tlnp | grep ':5920'   # gocron 默认 WebUI 端口
 
 ---
 
-## 六、QPKG 提取与分析（qnap-extract-qpkg）
+## 六、QPKG 提取与分析（extract_qdk.sh）
 
 分析已有 QPKG 安装包的内部结构，用于学习其他应用的打包方式。
 
-```sh
-# QPKG 文件本质是带有头部信息的 tar 包
-# 手动提取方式：
-file app.qpkg                      # 查看文件类型
-tail -n +XX app.qpkg | tar xzf -  # XX 为数据开始偏移量（查看头部信息确定）
+### 6.1 用法
 
-# 使用工具提取
-QPKG_ROOT=$(/sbin/getcfg qnap-extract-qpkg Install_Path -f /etc/config/qpkg.conf 2>/dev/null)
-"${QPKG_ROOT}/extract-qpkg.sh" app.qpkg
+```sh
+# 解包命令
+./extract_qdk.sh extract <foldername> <pkgname>
+
+# 参数说明：
+#   extract     子命令，执行解包操作
+#   foldername  解包输出的目标文件夹名称或路径（会在其下创建 qpkg_content/ 子目录）
+#   pkgname     待解包的 .qpkg 文件名
+
+# 示例：将 alist_3.28.0_x86_64.qpkg 解包到 alist/ 目录
+./extract_qdk.sh extract alist alist_3.28.0_x86_64.qpkg
+
+# 解包结果结构：
+#   alist/qpkg_content/          ← 控制文件（qpkg.cfg、qinstall.sh、package_routines 等）
+#   alist/qpkg_content/data/     ← 应用程序实际文件
+#   alist/qpkg_content/data.tar.gz（或 .7z）← 数据包原始归档
+#   alist/head                   ← QPKG 头部脚本
+#   alist/tail                   ← QPKG 尾部签名区
 ```
+
+### 6.2 重打包命令
+
+```sh
+# 修改文件后重新打包
+./extract_qdk.sh pack <foldername> <pkgname>
+
+# 注意：重打包需要签名证书文件 sign.crt 和 sign.key 存在于当前目录
+```
+
+### 6.3 脚本完整内容
+
+将以下脚本保存为 `extract_qdk.sh` 并赋予执行权限（`chmod +x extract_qdk.sh`）：
+
+```bash
+#!/bin/bash
+
+SIGN_CERT=sign.crt
+SIGN_KEY=sign.key
+
+PREFIX=qpkg_workspace
+EXTRACT_PATH=qpkg_content
+
+len_to_binary() {
+        len=$1
+        byte4="\\`printf 'x%02x' $((len%256))`"
+        len=$((len/256))
+        byte3="\\`printf 'x%02x' $((len%256))`"
+        len=$((len/256))
+        byte2="\\`printf 'x%02x' $((len%256))`"
+        len=$((len/256))
+        byte1="\\`printf 'x%02x' $((len%256))`"
+        printf "$byte1$byte2$byte3$byte4"
+}
+
+get_offset() {
+        offsets="$(/bin/sed -n '1,/^exit 1/{
+s/^script_len=\([0-9]*\).*$/\1/p
+s/^offset.*script_len[^0-9]*\([0-9]*\).*$/\1/p
+s/^offset.*offset[^0-9]*\([0-9]*\).*$/\1/p
+/^exit 1/q
+}' "${QPKG}")"
+        script_len=`echo $offsets|cut -f 1 -d " "`
+        raw_offset1=`echo $offsets|cut -f 2 -d " "`
+        raw_offset2=`echo $offsets|cut -f 3 -d " "`
+        offset1=$((script_len+raw_offset1))
+        offset2=$((offset1+raw_offset2))
+}
+
+extract_qdk() {
+        mkdir -p $PREFIX/$EXTRACT_PATH
+        get_offset
+        echo $script_len $raw_offset1 $raw_offset2 $offset1 $offset2
+        echo $(((raw_offset2+1024)/1024))
+        dd if=$QPKG bs=$script_len count=1 > $PREFIX/head
+        if grep data.tar.7z  $PREFIX/head >/dev/null; then
+                is7z=1
+        fi
+        dd if=$QPKG bs=$script_len skip=1 |/bin/tar -xO | /bin/tar -xzv -C  $PREFIX/$EXTRACT_PATH
+        dd if=$QPKG bs=$offset1 skip=1 | /bin/cat | /bin/dd bs=1024 of=$PREFIX/$EXTRACT_PATH/data.tar.gz
+        busybox truncate -s $raw_offset2 $PREFIX/$EXTRACT_PATH/data.tar.gz
+
+        mkdir $PREFIX/$EXTRACT_PATH/data
+        if [ "$is7z" == "1" ]; then
+                mv $PREFIX/$EXTRACT_PATH/data.tar.gz $PREFIX/$EXTRACT_PATH/data.tar.7z
+                7z x -so $PREFIX/$EXTRACT_PATH/data.tar.7z | tar x -C $PREFIX/$EXTRACT_PATH/data
+        else
+                tar xf $PREFIX/$EXTRACT_PATH/data.tar.gz -C $PREFIX/$EXTRACT_PATH/data
+        fi
+
+        tail -c 100 $QPKG> $PREFIX/tail
+}
+
+pack_qdk() {
+        # control.tar.gz
+        tar czf $PREFIX/control.tar.gz -C $PREFIX/$EXTRACT_PATH built_info package_routines  qinstall.sh  qpkg.cfg
+        tar cf $PREFIX/control.tar -C $PREFIX control.tar.gz
+        new_offset1=`stat -c "%s" $PREFIX/control.tar`
+        new_offset2=`stat -c "%s" $PREFIX/$EXTRACT_PATH/data.tar.gz`
+# update control.tar offset
+        sed -i "s/^\(.*script_len \+ \)$raw_offset1\(.*\)\$/\1$new_offset1\2/g" $PREFIX/head
+# update data.tar.gz offset
+# assume the longest number will not expect confict.
+        sed -i "s/^\(.*\)$raw_offset2\(.*\)\$/\1$new_offset2\2/g" $PREFIX/head
+# update /bin/dd bs=1024 count=
+        bcount=$(((new_offset2+1024)/1024))
+        sed -i "s/^\(.*bs=1024 count=\)[0-9]*\(.*\)\$/\1$bcount\2/g" $PREFIX/head
+
+# update script_len
+        script_len=`stat -c "%s" $PREFIX/head`
+        sed -i "s/^script_len=.*\$/script_len=$script_len/g" $PREFIX/head
+
+# assemble
+        cat $PREFIX/head $PREFIX/control.tar $PREFIX/$EXTRACT_PATH/data.tar.gz > $PREFIX/qpkg.bin
+
+# sign
+        openssl sha1 -binary $PREFIX/qpkg.bin | openssl cms -sign  -nodetach -binary -signer $SIGN_CERT -inkey $SIGN_KEY > $PREFIX/qpkg.bin.sign
+
+ # tail
+        sign_len=`stat -c "%s" $PREFIX/qpkg.bin.sign`
+        echo -n "QDK" >> $PREFIX/qpkg.bin
+        printf "\xFE" >> $PREFIX/qpkg.bin
+        len_to_binary $sign_len >> $PREFIX/qpkg.bin
+        cat $PREFIX/qpkg.bin.sign >> $PREFIX/qpkg.bin
+        printf "\xFF" >> $PREFIX/qpkg.bin
+        cat $PREFIX/tail >> $PREFIX/qpkg.bin
+ # update encrypt
+        fullsize=`stat -c "%s" $PREFIX/qpkg.bin`
+        encrypt=$((fullsize * 3589 + 1000000000))
+        echo -n "$encrypt" | dd of=$PREFIX/qpkg.bin seek=$((fullsize-60)) bs=1 conv=notrunc
+        mv $PREFIX/qpkg.bin $PREFIX/$QPKG
+
+}
+
+usage() {
+        echo "Usage:"
+        echo "$0 extract foldername pkgname             extract package to foldername"
+        echo "$0 pack foldername pkgname                pack files under folder to foldername"
+        exit 1
+}
+
+if [ "$#" -eq "2" ]; then
+        usage
+fi
+
+PREFIX="$2"
+QPKG=$3
+
+case "$1" in
+        extract)
+                extract_qdk
+                ;;
+        pack)
+                pack_qdk
+                echo "please find it in $PREFIX/$QPKG"
+                ;;
+        *)
+                usage
+esac
+```
+
+### 6.4 QPKG 内部结构说明
+
+| 区域 | 内容 |
+|---|---|
+| 头部脚本（`head`） | Shell 安装脚本，含偏移量变量 `script_len`、`offset1`、`offset2` |
+| `control.tar` | 控制文件归档：`qpkg.cfg`、`qinstall.sh`、`package_routines`、`built_info` |
+| `data.tar.gz` / `data.tar.7z` | 应用程序实际文件 |
+| 尾部签名（`tail`） | QDK 签名区，含 `openssl cms` 数字签名 |
 
 ---
 
 ## 七、QuMagie 人像数据备份
 
-QuMagie 的人脸识别数据存储在特定路径，系统升级或重置后会丢失，需要单独备份。
+QuMagie v2.4.0 起支持人脸识别元数据的备份与恢复。备份原理是将每张图片/视频的元数据（相册、标签、人脸信息等）导出为独立 JSON 文件，存储于照片所在目录下的隐藏目录 `.@__thumb/` 中，文件名与照片同名，后缀为 `.json`。
+
+> **注意：** QTS 5.0 及以上不再支持通过备份 MySQL `S01` 库来恢复人脸数据，系统升级后会自动重新索引导致数据丢失，必须使用 v2.4.0 的新备份机制。
+
+### 7.1 qm_export 工具说明
+
+`qm_export` 是 QuMagie 安装目录内自带的 CLI 工具，路径为：
 
 ```sh
-# QuMagie 数据路径（通过 qnap-qumagie-face-data 工具定位）
-QPKG_ROOT=$(/sbin/getcfg QuMagie Install_Path -f /etc/config/qpkg.conf 2>/dev/null)
-ls "${QPKG_ROOT}" 2>/dev/null
+# 定位 QuMagie 安装路径
+QPKG_ROOT=$(/sbin/getcfg QuMagie Install_Path -f /etc/config/qpkg.conf)
+echo "QuMagie 安装路径: ${QPKG_ROOT}"
 
-# 一般人脸数据路径
-find /share -name "*.facev*" -o -name "face_*.db" 2>/dev/null | head -10
+# qm_export 完整路径
+QM_EXPORT="${QPKG_ROOT}/v2.4.0/cli/qm_export"
+ls -la "${QM_EXPORT}"
+```
+
+### 7.2 qm_export 调用方式
+
+`qumagie-backup.sh` 脚本对 `qm_export` 的调用封装如下（基于博客原文提取）：
+
+```sh
+#!/bin/sh
+
+# ── 配置区（修改以下四项）──────────────────────────────────────────
+export_type="metadata"
+# 可选值：
+#   metadata  仅导出元数据（相册、标签、人物等），不含原始文件
+#   full      导出媒体文件 + 元数据（文件较大）
+
+target_folder="备份/照片备份/QuMagie"
+# 备份目标路径，相对于 /share/，无需加 /share/ 前缀
+
+uname="admin"
+# 执行备份的用户名，管理员可备份其他用户数据
+
+password=""
+# 可选密码后缀：
+#   留空   → 实际密码为系统默认 qnapqnap
+#   123456 → 实际密码为 qnapqnap123456
+# ─────────────────────────────────────────────────────────────────────
+
+QPKG_ROOT=$(/sbin/getcfg QuMagie Install_Path -f /etc/config/qpkg.conf)
+QM_EXPORT="${QPKG_ROOT}/v2.4.0/cli/qm_export"
+
+"${QM_EXPORT}" \
+    --type "${export_type}" \
+    --target "/share/${target_folder}" \
+    --user "${uname}" \
+    --password "qnapqnap${password}"
+```
+
+### 7.3 使用步骤
+
+```sh
+# 1. 下载或创建脚本，赋予执行权限
+chmod 0755 /share/scripts/qumagie-backup.sh
+
+# 2. 编辑脚本，配置 export_type / target_folder / uname / password
+
+# 3. 手动执行测试
+/share/scripts/qumagie-backup.sh
+
+# 4. 配合 GoCron 或系统 crontab 实现定时自动备份
+# GoCron WebUI 添加任务，命令填写脚本完整路径即可
+```
+
+### 7.4 备份产物说明
+
+导出完成后，JSON 文件写入到每张照片所在目录的 `.@__thumb/` 隐藏目录：
+
+```
+/share/Photo/
+└── 全家福/
+    ├── 01.jpg
+    └── .@__thumb/
+        └── 01.jpg.json    ← 元数据备份文件
+```
+
+JSON 文件包含字段：`MediaType`、`Path`、人脸数组 `Faces`（含姓名、坐标、GroupId）、相册数组 `Albums`、标签 `Objects`、`Qtag` 版本标识等。
+
+### 7.5 恢复方式
+
+在 QuMagie WebUI 中执行恢复操作（目前仅支持网页端手动触发），系统会读取 `.@__thumb/` 目录内的 JSON 文件重建人脸识别数据。
+
+### 7.6 相关诊断命令
+
+```sh
+# 确认 qm_export 存在且可执行
+QPKG_ROOT=$(/sbin/getcfg QuMagie Install_Path -f /etc/config/qpkg.conf)
+ls -la "${QPKG_ROOT}/v2.4.0/cli/qm_export"
+
+# 查找已生成的 JSON 备份文件
+find /share/Photo -name "*.json" -path "*/.@__thumb/*" 2>/dev/null | head -20
+
+# 统计 JSON 备份文件数量
+find /share/Photo -name "*.json" -path "*/.@__thumb/*" 2>/dev/null | wc -l
 ```
 
 ---
