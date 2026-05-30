@@ -1,0 +1,378 @@
+name: Build QNAP Agent QPKG
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'PicoClaw 版本号（留空则自动获取最新版）'
+        required: false
+        default: ''
+      force_build:
+        description: '强制构建（即使版本已存在）'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "使用手动指定版本: $VERSION"
+          else
+            echo "获取 PicoClaw 最新版本..."
+            VERSION=$(curl -s "https://api.github.com/repos/sipeed/picoclaw/releases/latest" \
+              | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/^v//' || echo "")
+            if [ -z "$VERSION" ]; then
+              echo "无法获取最新版本号"
+              exit 1
+            fi
+            echo "自动获取到版本: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if version exists
+        id: check
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          FORCE="${{ github.event.inputs.force_build }}"
+
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            if [ "$FORCE" = "true" ]; then
+              echo "版本 v$VERSION 已存在，但强制构建已启用"
+              echo "exists=false" >> $GITHUB_OUTPUT
+              git tag -d "v$VERSION" 2>/dev/null || true
+              git push origin ":refs/tags/v$VERSION" 2>/dev/null || true
+            else
+              echo "版本 v$VERSION 已存在，跳过构建"
+              echo "exists=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "版本 v$VERSION 是新版本，开始构建"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch Release Notes
+        id: notes
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          RAW_BODY=$(curl -s "https://api.github.com/repos/sipeed/picoclaw/releases/latest" \
+            | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('body',''))" 2>/dev/null || echo "")
+
+          if [ -z "$RAW_BODY" ] || [ "$RAW_BODY" = "null" ]; then
+            RAW_BODY="更新至 v${VERSION}"
+          fi
+
+          {
+            echo "notes<<EOF"
+            echo "$RAW_BODY"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          echo "更新日志已获取"
+
+      - name: Download PicoClaw Binaries
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BASE_URL="https://github.com/sipeed/picoclaw/releases/download/v${VERSION}"
+
+          # 每个 QPKG 架构目录对应的下载文件
+          # arm-x41 和 arm-x31 共用 armv7，只下载一次
+          declare -A ARCH_TAR=(
+            ["x86_64"]="picoclaw_Linux_x86_64.tar.gz"
+            ["arm_64"]="picoclaw_Linux_arm64.tar.gz"
+            ["arm-x41"]="picoclaw_Linux_armv7.tar.gz"
+            ["arm-x31"]="picoclaw_Linux_armv7.tar.gz"
+          )
+
+          mkdir -p /tmp/picoclaw-bins
+          ARMV7_EXTRACTED=false
+
+          for arch in x86_64 arm_64 arm-x41 arm-x31; do
+            tarfile="${ARCH_TAR[$arch]}"
+            destdir="/tmp/picoclaw-bins/${arch}"
+            mkdir -p "$destdir"
+
+            if [[ "$tarfile" == *"armv7"* ]]; then
+              if [ "$ARMV7_EXTRACTED" = "false" ]; then
+                echo "下载 armv7（arm-x41 / arm-x31 共用）: $tarfile"
+                wget -q "${BASE_URL}/${tarfile}" -O /tmp/armv7.tar.gz || { echo "下载失败"; exit 1; }
+                ARMV7_EXTRACTED=true
+              fi
+              tar -xzf /tmp/armv7.tar.gz -C "$destdir"
+            else
+              echo "下载 ${arch}: $tarfile"
+              wget -q "${BASE_URL}/${tarfile}" -O /tmp/${arch}.tar.gz || { echo "下载失败"; exit 1; }
+              tar -xzf /tmp/${arch}.tar.gz -C "$destdir"
+            fi
+
+            # 只保留 picoclaw 和 picoclaw-launcher，删除其余文件
+            find "$destdir" -maxdepth 1 -type f \
+              ! -name "picoclaw" ! -name "picoclaw-launcher" -delete
+            find "$destdir" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+
+            if [ ! -f "$destdir/picoclaw" ]; then
+              echo "错误：${arch} 目录下未找到 picoclaw 二进制"
+              ls -la "$destdir/"
+              exit 1
+            fi
+            chmod +x "$destdir/picoclaw"
+            [ -f "$destdir/picoclaw-launcher" ] && chmod +x "$destdir/picoclaw-launcher"
+
+            echo "✅ ${arch}: $(ls $destdir/)"
+          done
+
+          echo "所有二进制准备完毕"
+
+      - name: Install Dependencies
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            git-core ca-certificates wget python-is-python3 make gcc rsync
+
+      - name: Install QDK
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          git clone https://github.com/qnap-dev/QDK.git /tmp/QDK
+          cd /tmp/QDK
+          sudo ./InstallToUbuntu.sh install
+          echo "/usr/share/QDK/bin" >> $GITHUB_PATH
+
+      - name: Prepare Build Directory
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          BUILD_DIR="/tmp/qnap-agent-build"
+          mkdir -p "$BUILD_DIR"
+
+          # 复制仓库所有文件（排除 .git / .github）
+          rsync -a --exclude='.git' --exclude='.github' \
+            "$GITHUB_WORKSPACE/" "$BUILD_DIR/"
+
+          # package_routines 中二进制路径为 ${QPKG_ROOT}/picoclaw
+          # qbuild 会把各架构目录下的文件打包进对应 QPKG
+          # 所以每个架构目录里放 picoclaw（和可选的 picoclaw-launcher）
+          for arch in x86_64 arm_64 arm-x41 arm-x31; do
+            arch_dir="$BUILD_DIR/${arch}"
+            mkdir -p "$arch_dir"
+
+            cp "/tmp/picoclaw-bins/${arch}/picoclaw" "$arch_dir/"
+            echo "✅ ${arch}/picoclaw 已放入"
+
+            if [ -f "/tmp/picoclaw-bins/${arch}/picoclaw-launcher" ]; then
+              cp "/tmp/picoclaw-bins/${arch}/picoclaw-launcher" "$arch_dir/"
+              echo "   ${arch}/picoclaw-launcher 已放入"
+            fi
+          done
+
+          echo "构建目录结构:"
+          ls -la "$BUILD_DIR/"
+
+      - name: Update Version in qpkg.cfg
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD_DIR="/tmp/qnap-agent-build"
+
+          # qpkg.cfg 中版本字段为 QPKG_VER="x.x.x"
+          sed -i "s#^QPKG_VER=.*#QPKG_VER=\"${VERSION}\"#" "$BUILD_DIR/qpkg.cfg"
+
+          echo "qpkg.cfg 版本已更新:"
+          grep "^QPKG_VER=" "$BUILD_DIR/qpkg.cfg"
+
+      - name: Build QPKG
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          cd /tmp/qnap-agent-build
+          qbuild
+
+          if [ -z "$(ls -A build/*.qpkg 2>/dev/null)" ]; then
+            echo "QPKG 构建失败，build 目录内容:"
+            ls -la build/ 2>/dev/null || echo "(目录不存在)"
+            exit 1
+          fi
+
+          echo "QPKG 构建成功:"
+          ls -lh build/
+
+      - name: Prepare Release Files
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          RELEASE_DIR="$GITHUB_WORKSPACE/qpkg-release"
+          mkdir -p "$RELEASE_DIR"
+
+          cd /tmp/qnap-agent-build/build
+
+          for file in *.qpkg; do
+            # qbuild 生成的文件名示例: qnap-agent_x86_64.qpkg / qnap-agent_arm_64.qpkg 等
+            if   [[ "$file" == *"x86_64"* ]]; then
+              NEW_NAME="qnap-agent_${VERSION}_x86_64.qpkg"
+            elif [[ "$file" == *"arm_64"* ]] || [[ "$file" == *"aarch64"* ]] || [[ "$file" == *"arm64"* ]]; then
+              NEW_NAME="qnap-agent_${VERSION}_arm_64.qpkg"
+            elif [[ "$file" == *"arm-x41"* ]]; then
+              NEW_NAME="qnap-agent_${VERSION}_arm-x41.qpkg"
+            elif [[ "$file" == *"arm-x31"* ]]; then
+              NEW_NAME="qnap-agent_${VERSION}_arm-x31.qpkg"
+            else
+              echo "未知架构文件，跳过: $file"
+              continue
+            fi
+
+            cp "$file" "$RELEASE_DIR/$NEW_NAME"
+            echo "已重命名: $NEW_NAME"
+          done
+
+          # 生成 md5 校验文件
+          cd "$RELEASE_DIR"
+          for file in *.qpkg; do
+            md5sum "$file" > "${file}.md5"
+          done
+
+          echo "发布文件列表:"
+          ls -lh "$RELEASE_DIR/"
+
+      - name: Update Repository qpkg.cfg & Commit
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # 同步更新仓库中的 qpkg.cfg（供下次构建使用）
+          sed -i "s#^QPKG_VER=.*#QPKG_VER=\"${VERSION}\"#" qpkg.cfg
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add qpkg.cfg
+
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: bump picoclaw version to v${VERSION}"
+            git push origin HEAD:main
+          else
+            echo "qpkg.cfg 无变化，跳过提交"
+          fi
+
+      - name: Create Tag
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "v${VERSION}" -m "Release qnap-agent v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Delete Existing Release
+        if: steps.check.outputs.exists == 'false' && github.event.inputs.force_build == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = '${{ steps.version.outputs.version }}';
+            const tagName = `v${version}`;
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tagName
+              });
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id
+              });
+              console.log(`已删除旧 Release: ${tagName}`);
+            } catch (e) {
+              console.log(`Release ${tagName} 不存在或已删除`);
+            }
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "v${{ steps.version.outputs.version }}"
+          files: qpkg-release/*
+          body: |
+            ## 更新内容
+
+            ${{ steps.notes.outputs.notes }}
+
+            ## 安装方法
+
+            1. 下载对应架构的 `.qpkg` 文件
+            2. 登录 QNAP 管理界面 → App Center
+            3. 点击右上角齿轮图标 → **手动安装**
+            4. 选择下载的 `.qpkg` 文件进行安装
+            5. 安装完成后访问 `http://NAS-IP:18800` 完成配置
+
+            ## 支持架构
+
+            | 文件 | 适用设备 |
+            |------|--------|
+            | `*_x86_64.qpkg` | Intel/AMD 64位 |
+            | `*_arm_64.qpkg` | ARM 64位（aarch64） |
+            | `*_arm-x41.qpkg` | QNAP ARM Cortex-A9（arm-x41） |
+            | `*_arm-x31.qpkg` | QNAP ARM Cortex-A15（arm-x31） |
+
+            ## 构建信息
+
+            - PicoClaw 上游版本: v${{ steps.version.outputs.version }}
+            - Commit: ${{ github.sha }}
+            - PicoClaw 上游仓库: https://github.com/sipeed/picoclaw
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qnap-agent-v${{ steps.version.outputs.version }}
+          path: qpkg-release/*
+          retention-days: 30
+
+      - name: Build Summary
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          FORCE="${{ github.event.inputs.force_build }}"
+
+          if [ "$FORCE" = "true" ]; then
+            echo "### 🔄 qnap-agent v${VERSION} 强制重新构建成功" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ qnap-agent v${VERSION} 构建成功" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**构建文件:**" >> $GITHUB_STEP_SUMMARY
+          for file in $GITHUB_WORKSPACE/qpkg-release/*.qpkg; do
+            size=$(du -h "$file" | cut -f1)
+            echo "- \`$(basename $file)\` (${size})" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release（预发布）:** https://github.com/${{ github.repository }}/releases/tag/v${VERSION}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skip Summary
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "### ⏭️ 版本 v${VERSION} 已存在，跳过构建" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 如需重新构建，请勾选「强制构建」选项" >> $GITHUB_STEP_SUMMARY
