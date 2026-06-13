@@ -15,7 +15,16 @@ pkg_pre_install() {
     if [ -z "${CURRENT_ROOT}" ]; then
         CURRENT_ROOT="/share/CACHEDEV1_DATA/.qpkg/${QPKG_NAME}"
     fi
-    
+
+    # 创建媒体临时目录（实际存储位置在插件目录内）
+    mkdir -p "${CURRENT_ROOT}/tmp/picoclaw_media"
+    # 创建软链接：/tmp/picoclaw_media → 插件目录（picoclaw 引擎硬编码写 /tmp/picoclaw_media/）
+    if [ ! -L "/tmp/picoclaw_media" ]; then
+        ln -sf "${CURRENT_ROOT}/tmp/picoclaw_media" /tmp/picoclaw_media
+    fi
+    # PR_LOG 迁移到插件目录下（通过软链接也可从 /tmp/picoclaw_media/ 访问）
+    PR_LOG="${CURRENT_ROOT}/tmp/picoclaw_media/qnap-agent-log.txt"
+
     source_dir="${CURRENT_ROOT}/workspace"
     backup_dir="/tmp/qnap-agent-preserve"
     
@@ -82,7 +91,15 @@ pkg_install() {
 
     mkdir -p "${app_root}" "${app_root}/sessions" "${app_root}/memory" "${app_root}/state" \
         "${app_root}/cron" "${app_root}/skills" "${QPKG_ROOT}/update" "${QPKG_ROOT}/backup" \
-        "${QPKG_ROOT}/run" "${QPKG_ROOT}/log" "${app_root}/scripts" "${app_root}/tools"
+        "${QPKG_ROOT}/run" "${QPKG_ROOT}/log" "${app_root}/scripts" "${app_root}/tools" \
+        "${QPKG_ROOT}/tmp/picoclaw_media"
+
+    # 确保软链接存在（安装后路径可能与预安装阶段不同）
+    if [ ! -L "/tmp/picoclaw_media" ]; then
+        ln -sf "${QPKG_ROOT}/tmp/picoclaw_media" /tmp/picoclaw_media
+    fi
+    # 更新 PR_LOG 为安装后的最终路径
+    PR_LOG="${QPKG_ROOT}/tmp/picoclaw_media/qnap-agent-log.txt"
 
     chmod 0755 "${QPKG_ROOT}/picoclaw" 2>/dev/null || true
     chmod 0755 "${QPKG_ROOT}/picoclaw-launcher" 2>/dev/null || true
@@ -132,6 +149,12 @@ pkg_install() {
     # 5. 执行初始化 (onboard) & 生成元数据
     run_picoclaw_onboard_if_needed "${QPKG_ROOT}"
     repair_qnap_skill_metadata "${QPKG_ROOT}"
+
+    # 6. DEBUG: dump 最终 workspace 结构
+    pr_log "安装: [DEBUG] === 安装完成后 ${QPKG_ROOT}/workspace 完整目录树 ==="
+    find "${QPKG_ROOT}/workspace" -maxdepth 4 2>/dev/null | while read -r line; do
+        pr_log "安装: [DEBUG]   ${line}"
+    done
     
     pr_log "=== 安装阶段结束 ==="
 }
@@ -155,27 +178,88 @@ run_picoclaw_onboard_if_needed() {
         return 1
     fi
 
+    # 使用隔离的临时 HOME，避免污染 /root 或安装目录
+    onboard_tmp=$(mktemp -d /tmp/picoclaw-onboard-XXXXXX)
+    pr_log "初始化: 临时 HOME = ${onboard_tmp}"
     pr_log "初始化: 正在执行 picoclaw onboard..."
-    HOME="/root" "${picoclaw_bin}" onboard >> ${QPKG_ROOT}/log/qnap-agent-init.log 2>&1
+
+    # 记录 onboard 前 workspace 状态
+    pr_log "初始化: [DEBUG] === onboard 前 ${app_root} 内容 ==="
+    find "${app_root}" -maxdepth 3 2>/dev/null | while read -r line; do
+        pr_log "初始化: [DEBUG]   ${line}"
+    done
+
+    HOME="${onboard_tmp}" "${picoclaw_bin}" onboard >> ${QPKG_ROOT}/log/qnap-agent-init.log 2>&1
     rc=$?
-    
+
+    pr_log "初始化: onboard 退出码 = ${rc}"
+
+    # ── 详细 dump：onboard 在临时 HOME 中创建了什么 ──
+    pr_log "初始化: [DEBUG] === onboard 后临时 HOME 完整目录树 ==="
+    find "${onboard_tmp}" 2>/dev/null | while read -r line; do
+        pr_log "初始化: [DEBUG]   ${line}"
+    done
+
+    # ── 详细 dump：onboard 后 workspace 变化 ──
+    pr_log "初始化: [DEBUG] === onboard 后 ${app_root} 内容 ==="
+    find "${app_root}" -maxdepth 3 2>/dev/null | while read -r line; do
+        pr_log "初始化: [DEBUG]   ${line}"
+    done
+
+    # ── 检查 /root 是否被污染 ──
+    pr_log "初始化: [DEBUG] === /root 下新增内容检查 ==="
+    for chk in /root/.picoclaw /root/workspace /root/.config; do
+        if [ -e "$chk" ]; then
+            pr_log "初始化: [DEBUG]   发现: ${chk}"
+            find "$chk" -maxdepth 2 2>/dev/null | while read -r line; do
+                pr_log "初始化: [DEBUG]     ${line}"
+            done
+        fi
+    done
+
     if [ $rc -eq 0 ]; then
         pr_log "初始化: onboard 成功，正在检查生成的技能..."
-        
-        src_skills="/root/.picoclaw/workspace/skills"
-        if [ -d "$src_skills" ]; then
+
+        # 搜索 picoclaw 在临时 HOME 中创建的 skills 目录
+        src_skills=""
+        for candidate in \
+            "${onboard_tmp}/.picoclaw/workspace/skills" \
+            "${onboard_tmp}/workspace/skills" \
+            "${onboard_tmp}/.picoclaw/skills" \
+            "${onboard_tmp}/skills"; do
+            if [ -d "$candidate" ]; then
+                src_skills="$candidate"
+                break
+            fi
+        done
+
+        if [ -n "$src_skills" ]; then
             mkdir -p "${app_root}/skills"
             cp -Rp "$src_skills/." "${app_root}/skills/" 2>/dev/null
-            rm -rf "/root/.picoclaw" 
-            pr_log "初始化: 已从 /root/.picoclaw 导入技能"
+            pr_log "初始化: 已从 ${src_skills} 导入技能"
+        else
+            pr_log "初始化: 未找到 skills 目录（可能为正常情况）"
         fi
-        
+
         mkdir -p "${app_root}/state"
         echo "${QPKG_VER:-unknown}" > "${onboard_marker}"
         pr_log "初始化: 完成."
     else
         pr_log "初始化: 失败 (代码=${rc})"
     fi
+
+    # 无论成功失败，都清理临时目录
+    rm -rf "${onboard_tmp}"
+    pr_log "初始化: 已清理临时目录 ${onboard_tmp}"
+
+    # 清理 /root 下可能被 picoclaw 创建的残留
+    for leftover in /root/.picoclaw /root/workspace; do
+        if [ -e "$leftover" ]; then
+            rm -rf "$leftover"
+            pr_log "初始化: 已清理残留目录 ${leftover}"
+        fi
+    done
+
     return $rc
 }
 
@@ -187,14 +271,22 @@ repair_qnap_skill_metadata() {
     skills_dir="${QPKG_ROOT}/workspace/skills"
     [ -d "${skills_dir}" ] || return 0
 
-    install_ts=$(date +%s)
+    created_date=$(date +%Y-%m-%d)
     for skill_dir in "${skills_dir}"/qnap-*; do
         [ -d "${skill_dir}" ] || continue
         meta="${skill_dir}/.skill-origin.json"
         if [ ! -f "${meta}" ]; then
             skill_name=$(basename "${skill_dir}")
+            # 从 SKILL.md frontmatter 提取 description 首行
+            skill_desc=$(sed -n '/^description:/{ s/^description:[[:space:]]*"//; p; q; }' "${skill_dir}/SKILL.md" 2>/dev/null)
+            skill_desc=$(echo "${skill_desc}" | sed 's/",$//')
             cat > "${meta}" << EOF
-{"version":1, "origin_kind":"qnap_agent_builtin", "slug":"${skill_name}", "installed_at":${install_ts}}
+{
+  "name": "${skill_name}",
+  "description": "${skill_desc}",
+  "skills": ["${skill_name}"],
+  "created_at": "${created_date}"
+}
 EOF
         fi
         chmod 600 "${meta}" 2>/dev/null || true

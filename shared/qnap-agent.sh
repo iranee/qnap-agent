@@ -29,12 +29,12 @@ LAST_INIT_FILE="${QPKG_ROOT}/workspace/state/last_init.txt"
 
 PIDFILE="${QPKG_ROOT}/run/qnap-agent.pid"
 WATCHDOG_PIDFILE="${QPKG_ROOT}/run/watchdog.pid"
-LOGFILE="${QPKG_ROOT}/log/qnap-agent.log"
+LOGFILE="${QPKG_ROOT}/logs/qnap-agent.log"
 
 LOG_MAX_BYTES=10485760   # 10 MB
 LOG_KEEP_LINES=1000
 
-mkdir -p "${QPKG_ROOT}/run" "${QPKG_ROOT}/log" "${PICOCLAW_HOME}"
+mkdir -p "${QPKG_ROOT}/run" "${QPKG_ROOT}/logs" "${PICOCLAW_HOME}"
 
 
 log() {
@@ -102,7 +102,7 @@ start() {
 	if [ ! -f "${LAST_INIT_FILE}" ] || [ ! -f "${SYSTEM_FILE}" ]; then
 		log "INFO" "未检测到系统采集记录，正在后台执行首次初始化..."
 		if [ -f "${INIT_SCRIPT}" ]; then
-			sh "${INIT_SCRIPT}" >> "${QPKG_ROOT}/log/qnap-agent-init.log" 2>&1 &
+			sh "${INIT_SCRIPT}" >> "${QPKG_ROOT}/logs/qnap-agent-init.log" 2>&1 &
 			log "INFO" "init-system.sh 已在后台运行 (PID: $!)"
 		else
 			log "WARN" "未找到 init-system.sh: ${INIT_SCRIPT}，跳过初始化"
@@ -288,7 +288,7 @@ start_watchdog() {
         fi
     fi
 
-    "${WATCHDOG_SCRIPT}" >> "${QPKG_ROOT}/log/watchdog.log" 2>&1 &
+    "${WATCHDOG_SCRIPT}" >> "${QPKG_ROOT}/logs/watchdog.log" 2>&1 &
     echo $! > "${WATCHDOG_PIDFILE}"
     log "INFO" "看门狗已启动 (PID: $(cat ${WATCHDOG_PIDFILE}))"
 }

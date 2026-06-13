@@ -30,7 +30,7 @@ BINARY_PATH="${QPKG_ROOT}/picoclaw"
 LAUNCHER_PATH="${QPKG_ROOT}/picoclaw-launcher"
 PIDFILE="${QPKG_ROOT}/run/qnap-agent.pid"
 SERVICE_SCRIPT="${QPKG_ROOT}/qnap-agent.sh"
-LOG="${QPKG_ROOT}/log/watchdog.log"
+LOG="${QPKG_ROOT}/logs/watchdog.log"
 
 CHECK_INTERVAL=300   # 5 分钟：升级包扫描间隔
 HEALTH_INTERVAL=60   # 1 分钟：健康检查间隔

@@ -30,7 +30,16 @@
         "max_args_length": 300,
         "separate_messages": false
       },
-      "split_on_marker": false
+      "split_on_marker": false,
+      "turn_profile": {
+        "enabled": false,
+        "history": {},
+        "system_prompt": {},
+        "skills": {},
+        "tools": {}
+      },
+      "max_llm_retries": 2,
+      "llm_retry_backoff_secs": 2
     }
   },
   "channel_list": {
@@ -220,11 +229,11 @@
         "base_url": "",
         "proxy": "",
         "streaming": {
-          "enabled": false,
           "throttle_seconds": 3,
           "min_growth_chars": 200
         },
-        "use_markdown_v2": true
+        "use_markdown_v2": true,
+        "media_group_delay_ms": 0
       }
     },
     "wecom": {
@@ -273,186 +282,6 @@
       }
     }
   },
-  "model_list": [
-    {
-      "model_name": "glm-4.7",
-      "provider": "zhipu",
-      "model": "glm-4.7",
-      "api_base": "https://open.bigmodel.cn/api/paas/v4"
-    },
-    {
-      "model_name": "gpt-5.4",
-      "provider": "openai",
-      "model": "gpt-5.4",
-      "api_base": "https://api.openai.com/v1"
-    },
-    {
-      "model_name": "claude-sonnet-4.6",
-      "provider": "anthropic",
-      "model": "claude-sonnet-4.6",
-      "api_base": "https://api.anthropic.com/v1"
-    },
-    {
-      "model_name": "deepseek-chat",
-      "provider": "deepseek",
-      "model": "deepseek-chat",
-      "api_base": "https://api.deepseek.com/v1"
-    },
-    {
-      "model_name": "venice-uncensored",
-      "provider": "venice",
-      "model": "venice-uncensored",
-      "api_base": "https://api.venice.ai/api/v1"
-    },
-    {
-      "model_name": "gemini-2.0-flash",
-      "provider": "gemini",
-      "model": "gemini-2.0-flash-exp",
-      "api_base": "https://generativelanguage.googleapis.com/v1beta"
-    },
-    {
-      "model_name": "qwen-plus",
-      "provider": "qwen",
-      "model": "qwen-plus",
-      "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    },
-    {
-      "model_name": "moonshot-v1-8k",
-      "provider": "moonshot",
-      "model": "moonshot-v1-8k",
-      "api_base": "https://api.moonshot.cn/v1"
-    },
-    {
-      "model_name": "llama-3.3-70b",
-      "provider": "groq",
-      "model": "llama-3.3-70b-versatile",
-      "api_base": "https://api.groq.com/openai/v1"
-    },
-    {
-      "model_name": "openrouter-auto",
-      "provider": "openrouter",
-      "model": "auto",
-      "api_base": "https://openrouter.ai/api/v1"
-    },
-    {
-      "model_name": "openrouter-gpt-5.4",
-      "provider": "openrouter",
-      "model": "openai/gpt-5.4",
-      "api_base": "https://openrouter.ai/api/v1"
-    },
-    {
-      "model_name": "nemotron-4-340b",
-      "provider": "nvidia",
-      "model": "nemotron-4-340b-instruct",
-      "api_base": "https://integrate.api.nvidia.com/v1"
-    },
-    {
-      "model_name": "cerebras-llama-3.3-70b",
-      "provider": "cerebras",
-      "model": "llama-3.3-70b",
-      "api_base": "https://api.cerebras.ai/v1"
-    },
-    {
-      "model_name": "vivgrid-auto",
-      "provider": "vivgrid",
-      "model": "auto",
-      "api_base": "https://api.vivgrid.com/v1"
-    },
-    {
-      "model_name": "ark-code-latest",
-      "provider": "volcengine",
-      "model": "ark-code-latest",
-      "api_base": "https://ark.cn-beijing.volces.com/api/v3"
-    },
-    {
-      "model_name": "doubao-pro",
-      "provider": "volcengine",
-      "model": "doubao-pro-32k",
-      "api_base": "https://ark.cn-beijing.volces.com/api/v3"
-    },
-    {
-      "model_name": "deepseek-v3",
-      "provider": "shengsuanyun",
-      "model": "deepseek-v3",
-      "api_base": "https://api.shengsuanyun.com/v1"
-    },
-    {
-      "model_name": "gemini-flash",
-      "provider": "antigravity",
-      "model": "gemini-3-flash",
-      "auth_method": "oauth"
-    },
-    {
-      "model_name": "copilot-gpt-5.4",
-      "provider": "github-copilot",
-      "model": "gpt-5.4",
-      "api_base": "http://localhost:4321",
-      "auth_method": "oauth"
-    },
-    {
-      "model_name": "llama3",
-      "provider": "ollama",
-      "model": "llama3",
-      "api_base": "http://localhost:11434/v1"
-    },
-    {
-      "model_name": "mistral-small",
-      "provider": "mistral",
-      "model": "mistral-small-latest",
-      "api_base": "https://api.mistral.ai/v1"
-    },
-    {
-      "model_name": "deepseek-v3.2",
-      "provider": "avian",
-      "model": "deepseek/deepseek-v3.2",
-      "api_base": "https://api.avian.io/v1"
-    },
-    {
-      "model_name": "kimi-k2.5",
-      "provider": "avian",
-      "model": "moonshotai/kimi-k2.5",
-      "api_base": "https://api.avian.io/v1"
-    },
-    {
-      "model_name": "MiniMax-M2.5",
-      "provider": "minimax",
-      "model": "MiniMax-M2.5",
-      "api_base": "https://api.minimaxi.com/v1",
-      "extra_body": {
-        "reasoning_split": true
-      }
-    },
-    {
-      "model_name": "LongCat-Flash-Thinking",
-      "provider": "longcat",
-      "model": "LongCat-Flash-Thinking",
-      "api_base": "https://api.longcat.chat/openai"
-    },
-    {
-      "model_name": "modelscope-qwen",
-      "provider": "modelscope",
-      "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
-      "api_base": "https://api-inference.modelscope.cn/v1"
-    },
-    {
-      "model_name": "local-model",
-      "provider": "vllm",
-      "model": "custom-model",
-      "api_base": "http://localhost:8000/v1"
-    },
-    {
-      "model_name": "lmstudio-local",
-      "provider": "lmstudio",
-      "model": "openai/gpt-oss-20b",
-      "api_base": "http://localhost:1234/v1"
-    },
-    {
-      "model_name": "azure-gpt5",
-      "provider": "azure",
-      "model": "my-gpt5-deployment",
-      "api_base": "https://your-resource.openai.azure.com"
-    }
-  ],
   "gateway": {
     "host": "0.0.0.0",
     "port": 18790,
@@ -516,7 +345,12 @@
       "provider": "sogou",
       "prefer_native": true,
       "fetch_limit_bytes": 10485760,
-      "format": "plaintext"
+      "format": "plaintext",
+      "gemini": {
+        "enabled": false,
+        "model": "gemini-2.5-flash",
+        "max_results": 5
+      }
     },
     "cron": {
       "enabled": true,
@@ -620,7 +454,7 @@
         "^/usr/local/cayin/bin/ffprobe\\b",
         "^/usr/local/cayin/bin/ffmpeg\\s+",
         "^python3?\\s+[^|;&`]+\\.py\\b",
-		"^__QPKG_ROOT__/qnap-agent\.sh(\s+(start|stop|restart|status|upgrade))?$",
+        "^__QPKG_ROOT__/qnap-agent\\.sh(\\s+(start|stop|restart|status|upgrade))?$",
         "^curl\\s+.*127\\.0\\.0\\.1",
         "\\$\\{[A-Za-z_][A-Za-z0-9_]*:-[^}]*\\}"
       ],
@@ -713,6 +547,9 @@
     },
     "write_file": {
       "enabled": true
+    },
+    "load_image": {
+      "enabled": true
     }
   },
   "heartbeat": {
@@ -726,10 +563,17 @@
   "voice": {
     "echo_transcription": false
   },
-  "build_info": {
-    "version": "0.2.8",
-    "git_commit": "6e1fab80",
-    "build_time": "2026-04-30T14:52:03Z",
-    "go_version": "1.25.9"
+  "evolution": {
+    "min_task_count": 2,
+    "min_success_ratio": 0.7
+  },
+  "events": {
+    "logging": {
+      "enabled": true,
+      "include": [
+        "agent.*"
+      ],
+      "min_severity": "info"
+    }
   }
 }
