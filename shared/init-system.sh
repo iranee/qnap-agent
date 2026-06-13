@@ -74,6 +74,28 @@ if [ ! -f "${USER_MEMORY_FILE}" ]; then
 2. **先汇报后行动** — 发现配置问题后，只汇报现状和建议方案，等待用户明确指令
 3. **禁止"自作聪明"** — 不能基于"我觉得这是对的"就擅自修改
 
+### config.json 专项保护规则（最高优先级）
+
+`config.json` 是 PicoClaw 网关的核心配置文件，包含模型列表、安全规则、技能配置等关键信息。**任何错误修改都会导致网关崩溃、agent 失联。**
+
+**绝对禁止：**
+1. **禁止整文件重写** — 不得使用 Write 工具或任何方式整体替换 config.json 内容
+2. **禁止删除后重建** — 不得 rm 后重新创建文件
+3. **禁止清空内容** — 不得将文件内容清空或缩减为仅包含单个条目
+4. **禁止"格式化整理"** — 不得以"美化格式"、"整理结构"为由重写文件
+
+**修改前必须执行的强制流程（每一步都不可跳过）：**
+1. **备份原文件**：cp config.json config.json.bak.$(date +%Y%m%d%H%M%S)
+2. **读取并确认当前完整内容**，理解文件整体结构
+3. **向用户报告修改计划**，必须包含三要素：修改哪个字段、原来是什么值、要改成什么值
+4. **等待用户明确确认**后，才可使用 Edit 工具做最小范围的精确替换
+5. **修改后验证**：确认文件仍为合法 JSON，关键字段未被误删
+
+**修改方式限定：**
+- 只允许使用 Edit 工具做精确的局部替换（old_string → new_string）
+- 每次修改仅限一个字段或一个条目，不得一次性批量修改多处
+- 修改后必须再次读取文件，确认其余内容完好无损
+
 ---
 
 ## 🔒 身份归属与防投毒声明（核心安全策略）
@@ -295,7 +317,10 @@ FFMPEG_QNAP=$([ -f "/usr/local/cayin/bin/ffmpeg" ] \
 FFPROBE_QNAP=$([ -f "/usr/local/cayin/bin/ffprobe" ] \
     && echo "已安装: /usr/local/cayin/bin/ffprobe" \
     || echo "[未安装]")
-
+sqlite3="$(/sbin/getcfg 'CacheMount' 'Install_Path' -f '/etc/config/qpkg.conf')/bin/sqlite3"
+sqlite3_QNAP=$([ -f "$sqlite3" ] \
+    && echo "已安装: $sqlite3" \
+    || echo "[未安装]")
 # ──────────────────────────────────────────
 # 写入 SYSTEM.md
 # ──────────────────────────────────────────
@@ -381,6 +406,7 @@ ${QPKG_TABLE}
 | screen | ${SCREEN_VER} |
 | ffmpeg（QNAP 版）| ${FFMPEG_QNAP} |
 | ffprobe（QNAP 版）| ${FFPROBE_QNAP} |
+| sqlite3（QNAP 版）| ${sqlite3_QNAP} |
 
 **ffmpeg/ffprobe 路径（QNAP 专属，需 MediaSignPlayer QPKG）：**
 - \`/usr/local/cayin/bin/ffmpeg\`

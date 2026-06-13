@@ -1,22 +1,22 @@
 ---
 name: qnap-openlist
 description: >
-  OpenList / AList 文件管理技能。通过 HTTP API 操作部署在 QNAP 或外部服务器上的
-  OpenList（AList 社区分支）实例，实现目录浏览、文件搜索、获取直链、上传、重命名、
-  移动、复制、删除、分享管理和搜索索引维护。适用于用户提到 OpenList、AList、网盘、
+  OpenList 文件管理技能。通过 HTTP API 操作部署在 QNAP 或外部服务器上的
+  OpenList 实例，实现目录浏览、文件搜索、获取直链、上传、重命名、
+  移动、复制、删除、分享管理和搜索索引维护。适用于用户提到 OpenList 网盘、
   云盘管理、远程文件浏览或需要操作网络存储内容的场景。
 ---
 
 # OpenList 文件管理技能
 
 通过 `scripts/openlist.sh` 调用 OpenList HTTP API，
-实现对 OpenList / AList 实例的完整文件管理能力。
+实现对 OpenList 实例的完整文件管理能力。
 
 ---
 
 ## 目录结构
 
-```
+```text
 workspace/skills/qnap-openlist/
 ├── SKILL.md              ← 本文件（Agent 运行时读取）
 ├── config.json           ← 凭据文件（首次 login 后自动生成，勿手动编辑）
@@ -30,7 +30,7 @@ workspace/skills/qnap-openlist/
 
 - **Shell**：QTS 内置 BusyBox ash（`/bin/sh`），无需 Python
 - **工具**：`curl`（系统内置）、`jq`（已下载到 `workspace/tools/jq`）
-- **可访问的 OpenList / AList 实例**（本机或远程均可）
+- **可访问的 OpenList 实例**（本机或远程均可）
 
 ---
 
@@ -174,7 +174,7 @@ sh skills/qnap-openlist/scripts/openlist.sh list \
 
 ### 目录浏览
 
-```
+```text
 用户要查看某个路径的内容
     ↓
 list --path <dir> --json
@@ -186,7 +186,7 @@ get --path <path>
 
 ### 搜索失败处理流程
 
-```
+```text
 search --keyword <keyword> 无结果
     ↓ 第一步
 更换关键词（更短、更模糊、不同扩展名）
@@ -202,7 +202,7 @@ index-build --async               （最后手段）
 
 ### 写操作流程
 
-```
+```text
 rename / move / copy / remove 前：
     ↓
 先 get --path <path> 确认目标存在且路径正确

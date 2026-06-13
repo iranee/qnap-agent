@@ -227,8 +227,8 @@ ${QPKG_ROOT}/qnap-agent.sh             服务脚本
 ${QPKG_ROOT}/init-system.sh            初始化脚本
 ${QPKG_ROOT}/watchdog.sh               看门狗脚本
 | `${QPKG_ROOT}/workspace/`                 PicoClaw 工作目录
-| `${QPKG_ROOT}/workspace/workspace`         主程序
-| `${QPKG_ROOT}/workspace/picoclaw-launcher`  Launcher
+| `${QPKG_ROOT}/picoclaw`                   主程序
+| `${QPKG_ROOT}/picoclaw-launcher`          Launcher
 | `${QPKG_ROOT}/workspace/config.json`      运行配置
 | `${QPKG_ROOT}/workspace/.security.yml`    凭据文件
 | `${QPKG_ROOT}/workspace/skills/`          技能目录
@@ -268,3 +268,83 @@ ${QPKG_ROOT}/tools/                    额外工具目录
 3. 不要把 Debian/Ubuntu/CentOS 的习惯直接搬到 QTS
 4. 脚本优先使用 POSIX sh 语法（兼容 BusyBox ash）
 5. 工具不存在时放到 ${QPKG_ROOT}/tools/，不安装系统包
+
+---
+
+## 十二、工具下载安全规范
+
+> 适用范围：通过 curl/wget 下载工具二进制到 tools/ 目录的场景
+> 触发场景：用户要求下载工具、升级工具版本、替换 tools/ 中的二进制文件
+
+### 12.1 确认正确的下载链接
+
+GitHub Release 的下载 URL 格式：
+
+- **正确**：`https://github.com/<owner>/<repo>/releases/download/<tag>/<binary-file>`
+- **错误**：`https://github.com/<owner>/<repo>`（这是首页 HTML）
+- **错误**：`https://github.com/<owner>/<repo>/releases/tag/<tag>`（这是 Release 页面 HTML）
+
+**黄金法则：URL 最后一级路径应该是文件名，而不是页面路径。**
+
+### 12.2 下载前必须执行的预检
+
+先用 HEAD 请求检查链接是否返回二进制：
+
+```sh
+curl -sI "https://github.com/<owner>/<repo>/releases/download/<tag>/<binary>" | grep -i content-type
+```
+
+- 期望输出：`content-type: application/octet-stream` 或 `application/gzip`
+- 危险输出：`content-type: text/html`（说明下载到的是网页，不是文件！）
+
+### 12.3 先下载到临时文件，确认后再移动
+
+```sh
+# 1. 下载到临时文件
+curl -L -o /tmp/new-tool "https://..."
+
+# 2. 验证文件类型
+file /tmp/new-tool
+# 期望：ELF 64-bit LSB executable, ... 或 GZip compressed data
+
+# 3. 检查文件大小，确认合理
+ls -lh /tmp/new-tool
+# >= 几百 KB 才可能是真正的二进制
+
+# 4. 确认无误后，备份旧文件（安全第一！）
+cp tools/sqlite3 tools/sqlite3.bak.$(date +%Y%m%d%H%M%S)
+
+# 5. 移动新文件到位
+cp /tmp/new-tool tools/sqlite3
+chmod +x tools/sqlite3
+
+# 6. 基本功能测试
+tools/sqlite3 --version 2>&1 || tools/sqlite3 -version 2>&1
+```
+
+### 12.4 常见下载陷阱
+
+| 场景 | 陷阱 | 正确做法 |
+|------|------|----------|
+| GitHub Release 下载 | 直接访问仓库主页或 Release 页获取的是 HTML | 必须使用 Release 附件直链（`/releases/download/<tag>/<file>`）|
+| GitHub 镜像站 | 镜像站可能返回不同的内容类型 | 同样用 `curl -sI` 预检 |
+| SourceForge | 下载页面通常是 HTML | 使用直接链接，或用 `wget` 配合 cookie |
+| 官方站经过 CDN | 可能返回 302 重定向到 CDN | 用 `-L` 跟随重定向 |
+| raw.githubusercontent.com | 获取源码时可能拿到 HTML 非代码 | 确认路径为 `/raw/` 而非 `/blob/` |
+
+### 12.5 事故恢复流程
+
+如果不慎下载了无效文件覆盖了原来的工具：
+
+1. **立即停止使用该工具**，避免产生更多错误
+2. **检查是否有备份**：`ls -la tools/<tool>*bak*`
+3. **如有备份**：`cp tools/<tool>.bak.<date> tools/<tool>`
+4. **如无备份**：从其他来源重新获取正确版本（已安装的 QPKG 中的同名工具、官方发布页手动下载等）
+5. **恢复后验证**：`file tools/<tool> && tools/<tool> --version`
+
+### 12.6 预防措施
+
+- **能用就别动** — 好用的工具不主动升级
+- **必须升级时，保留旧备份** — 备份原文件后再替换
+- **先验证后覆盖** — 始终使用 12.3 的步骤：临时文件 → 验证 → 备份 → 移动
+- **对 GitHub Release 链接保持警惕** — 确认 URL 结构正确后再使用

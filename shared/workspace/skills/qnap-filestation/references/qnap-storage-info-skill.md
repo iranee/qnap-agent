@@ -8,7 +8,7 @@
 
 ### 1. 获取所有存储信息（get_storage_info）
 
-```
+```bash
 GET ?func=get_storage_info
   &sid=${sid}
 ```
@@ -57,7 +57,7 @@ GET ?func=get_storage_info
 
 ### 2. 获取单个共享文件夹存储信息
 
-```
+```bash
 GET ?func=get_share_info
   &sid=${sid}
   &path=${共享文件夹路径}
@@ -71,7 +71,7 @@ GET ?func=get_share_info
 
 ### 1. 获取 NAS 主机名（get_hostname）
 
-```
+```bash
 GET ?func=get_hostname
   &sid=${sid}
 ```
@@ -90,7 +90,7 @@ GET ?func=get_hostname
 
 ### 2. 获取外部 IP 地址（get_external_ip）
 
-```
+```bash
 GET ?func=get_external_ip
   &sid=${sid}
 ```
@@ -115,7 +115,7 @@ GET ?func=get_external_ip
 
 > 将 NAS 上的 ISO 文件挂载为虚拟光驱，在 File Station 中像普通文件夹一样浏览。
 
-```
+```bash
 GET ?func=mount_iso
   &sid=${sid}
   &path=${ISO文件完整路径}
@@ -134,7 +134,7 @@ GET ?func=mount_iso
 
 ### 2. 卸载 ISO（umount_iso）
 
-```
+```bash
 GET ?func=umount_iso
   &sid=${sid}
   &path=${ISO挂载路径}
@@ -147,7 +147,7 @@ GET ?func=umount_iso
 
 ### 3. 列出已挂载的 ISO（list_iso）
 
-```
+```bash
 GET ?func=list_iso
   &sid=${sid}
 ```
@@ -175,7 +175,7 @@ GET ?func=list_iso
 
 ### 1. 列出远程连接（list_remote_connection）
 
-```
+```bash
 GET ?func=list_remote_connection
   &sid=${sid}
 ```
@@ -203,7 +203,7 @@ GET ?func=list_remote_connection
 
 ### 2. 创建远程连接（create_remote_connection）
 
-```
+```bash
 POST ?func=create_remote_connection
   &sid=${sid}
 
@@ -243,7 +243,7 @@ POST Body (JSON):
 
 ### 3. 连接/断开远程连接（connect_remote / disconnect_remote）
 
-```
+```bash
 GET ?func=connect_remote
   &sid=${sid}
   &id=${连接ID}
@@ -255,7 +255,7 @@ GET ?func=disconnect_remote
 
 ### 4. 删除远程连接（delete_remote_connection）
 
-```
+```bash
 GET ?func=delete_remote_connection
   &sid=${sid}
   &id=${连接ID}
@@ -267,7 +267,7 @@ GET ?func=delete_remote_connection
 
 ### 1. 列出外部 SMB 主机（list_smb_hosts）
 
-```
+```bash
 GET ?func=list_smb_hosts
   &sid=${sid}
   &start=0
@@ -276,7 +276,7 @@ GET ?func=list_smb_hosts
 
 ### 2. 列出 SMB 共享（list_smb_shares）
 
-```
+```bash
 GET ?func=list_smb_shares
   &sid=${sid}
   &host=${主机名或IP}

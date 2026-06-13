@@ -44,7 +44,7 @@ metadata: {"nanobot":{"emoji":"🔧","requires":{},"install":[]}}
 
 ## 🚫 绝对禁止操作
 
-```
+```text
 ❌ apt/yum/dnf/pip/npm install          系统包管理（Entware已装则/opt内opkg除外）
 ❌ reboot / shutdown / poweroff          重启关机（无确认）
 ❌ rm -rf /share/ 或 rm -rf /           大范围删除
@@ -71,7 +71,7 @@ metadata: {"nanobot":{"emoji":"🔧","requires":{},"install":[]}}
 
 ## ⚡ 关键记忆点（高频踩坑）
 
-```
+```text
 1. / 根目录是 RAM disk，重启后内容清空
    → 配置放 /etc/config/ 或 /share/，数据放 /share/
    → /root/.bashrc 重启消失！写 /etc/config/profile
@@ -137,7 +137,7 @@ ${QPKG_ROOT}/tools/              # 额外工具（静态二进制）
 
 ## SSL 证书核心记忆点
 
-```
+```text
 /etc/stunnel/stunnel.pem  = HTTPS 核心证书文件（格式：私钥+证书+中间链拼接）
 → 该文件重启后持久（链接到 /mnt/HDA_ROOT/.config/stunnel/）
 

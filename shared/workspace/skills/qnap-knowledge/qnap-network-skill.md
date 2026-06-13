@@ -123,7 +123,7 @@ Get-SmbClientConfiguration | Select RequireSecuritySignature
 ```
 
 修复方案 A（推荐，在 QNAP 侧启用签名支持）：
-```
+```text
 QTS GUI → 控制台 → 网络与文件服务 → Windows 共享（Samba）
 → 高级设置 → SMB 签名 → 选择"如客户端要求则签名"
 ```
@@ -154,7 +154,7 @@ Set-SmbClientConfiguration -EnableInsecureGuestLogons $true
 **长期解决方案（最彻底）：** 在 QNAP 上为每个需要访问共享的用户创建独立账号，不依赖来宾访问。此方案完全兼容 Windows 11 24H2 的新安全策略，且更安全。
 
 **查询 Windows 版本号：**
-```
+```text
 运行 → winver → 查看 Build 号，26100.x 即为 24H2
 ```
 
@@ -200,7 +200,7 @@ NFS 权限问题：QTS NFS 配置需开启"允许非标准端口连接"，macOS 
 ### 9.1 Tailscale 安装（最推荐的远程访问方案）
 
 **方式 A — App Center 直装：**
-```
+```text
 App Center → Communications → Tailscale → 安装 → 打开 → Connect
 登录 Tailscale 账号后，NAS 加入 Tailnet，可从任何已授权设备访问
 ```

@@ -558,7 +558,7 @@
         "^docker\\s+(ps|inspect|logs|stats|images|version|info|network|volume|system)\\b",
         "^docker\\s+compose\\s+(up|down|restart|stop|start|pull|logs|ps|config|build)\\b",
         "^docker\\s+(pull|tag|rmi|rm|stop|start|restart|pause|unpause)\\s+\\S+",
-        "^docker\\s+run\\s+(?!.*-v\\s*/(?!share/))",
+        "^docker\\s+run\\s+",
         "^docker\\s+exec\\s+",
         "^/sbin/getcfg\\b",
         "^getcfg\\b",
@@ -620,9 +620,8 @@
         "^/usr/local/cayin/bin/ffprobe\\b",
         "^/usr/local/cayin/bin/ffmpeg\\s+",
         "^python3?\\s+[^|;&`]+\\.py\\b",
-        "^bash\\s+/__QPKG_ROOT__[^|;&`]+\\.sh\\b",
-        "^sh\\s+/__QPKG_ROOT__[^|;&`]+\\.sh\\b",
-        "^curl\\s+.*127\\.0\\.0\\.1:8442",
+		"^__QPKG_ROOT__/qnap-agent\.sh(\s+(start|stop|restart|status|upgrade))?$",
+        "^curl\\s+.*127\\.0\\.0\\.1",
         "\\$\\{[A-Za-z_][A-Za-z0-9_]*:-[^}]*\\}"
       ],
       "timeout_seconds": 60

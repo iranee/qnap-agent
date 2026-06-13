@@ -92,6 +92,7 @@ pkg_install() {
 
     pr_log "安装: 正在从备份区恢复用户数据..."
     restore_dir="/tmp/qnap-agent-preserve"
+    if [ -d "$restore_dir" ]; then
         for f in "$restore_dir/identity"/*.md; do
             if [ -f "$f" ]; then
                 fname=$(basename "$f")
@@ -121,6 +122,8 @@ pkg_install() {
             cp "${QPKG_ROOT}/config/config.json.tpl" "${cfg}"
             sed "s#__QPKG_ROOT__#${QPKG_ROOT}#g" "${cfg}" > "${cfg}.tmp" && mv "${cfg}.tmp" "${cfg}"
             pr_log "安装: 配置文件已生成."
+        else
+            pr_log "安装: 警告! 模板文件不存在: ${QPKG_ROOT}/config/config.json.tpl，config.json 未生成!"
         fi
     else
         pr_log "安装: 发现现有 config.json，予以保留."
@@ -209,7 +212,7 @@ pkg_post_install() {
     pr_log "安装后: 启动脚本已链接."
     
     if [ -f "${QPKG_ROOT}/init-system.sh" ]; then
-        "${QPKG_ROOT}/init-system.sh" "${QPKG_ROOT}" >> ${QPKG_ROOT}/log/qnap-agent-init.log 2>&1 &
+        "${QPKG_ROOT}/init-system.sh" >> ${QPKG_ROOT}/log/qnap-agent-init.log 2>&1 &
         pr_log "安装后: 系统初始化脚本已在后台运行."
     fi
     pr_log "=== 安装后处理结束 ==="
@@ -223,5 +226,7 @@ pkg_pre_remove() {
 }
 
 pkg_remove() {
-    pr_log "卸载: 已删除所有文件."
+    rm -f /etc/init.d/qnap-agent 2>/dev/null || true
+    rm -rf /tmp/qnap-agent-preserve 2>/dev/null || true
+    pr_log "卸载: 清理完成."
 }

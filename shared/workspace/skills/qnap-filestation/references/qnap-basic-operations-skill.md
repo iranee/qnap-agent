@@ -8,7 +8,7 @@
 ## 1. 创建文件夹（createdir）
 
 ### 请求
-```
+```bash
 GET .../utilRequest.cgi
   ?func=createdir
   &sid=${sid}
@@ -45,7 +45,7 @@ GET .../utilRequest.cgi
 ## 2. 重命名（rename）
 
 ### 请求
-```
+```bash
 GET .../utilRequest.cgi
   ?func=rename
   &sid=${sid}
@@ -82,7 +82,7 @@ GET .../utilRequest.cgi
 ## 3. 复制文件/文件夹（copy）
 
 ### 请求
-```
+```bash
 GET .../utilRequest.cgi
   ?func=copy
   &sid=${sid}
@@ -92,7 +92,7 @@ GET .../utilRequest.cgi
 ```
 
 ### 批量复制（多个源）
-```
+```bash
 # 多文件路径用 path[]=xxx 方式传递（POST 表单）或逗号分隔
 POST .../utilRequest.cgi
 Body: func=copy&sid=${sid}&path[]=../file1.txt&path[]=/Public/file2.txt&dest_path=/Backup&overwrite=0
@@ -118,7 +118,7 @@ Body: func=copy&sid=${sid}&path[]=../file1.txt&path[]=/Public/file2.txt&dest_pat
 > `pid` 为后台任务 ID，可用 `func=get_copy_status&pid=12345` 查询进度
 
 ### 查询复制进度
-```
+```bash
 GET .../utilRequest.cgi
   ?func=get_copy_status
   &sid=${sid}
@@ -144,7 +144,7 @@ GET .../utilRequest.cgi
 ## 4. 移动文件/文件夹（move）
 
 ### 请求
-```
+```bash
 GET .../utilRequest.cgi
   ?func=move
   &sid=${sid}
@@ -178,7 +178,7 @@ GET .../utilRequest.cgi
 
 ### 5.1 安全删除 — 进入回收站（推荐 picoclaw 使用）
 
-```
+```bash
 GET .../utilRequest.cgi
   ?func=delete
   &sid=${sid}
@@ -189,7 +189,7 @@ GET .../utilRequest.cgi
 
 ### 5.2 永久删除 — 不可恢复（禁止 picoclaw 使用）
 
-```
+```bash
 GET .../utilRequest.cgi
   ?func=delete
   &sid=${sid}
@@ -214,7 +214,7 @@ GET .../utilRequest.cgi
 ```
 
 ### 查询删除进度
-```
+```bash
 GET .../utilRequest.cgi
   ?func=get_del_status
   &sid=${sid}
@@ -239,7 +239,7 @@ GET .../utilRequest.cgi
 ## 6. 打开/获取文件查看器（open_file / get_viewer）
 
 ### open_file
-```
+```bash
 GET .../utilRequest.cgi
   ?func=open_file
   &sid=${sid}
@@ -249,7 +249,7 @@ GET .../utilRequest.cgi
 返回适合该文件的查看器 URL。
 
 ### get_viewer
-```
+```bash
 GET .../utilRequest.cgi
   ?func=get_viewer
   &sid=${sid}

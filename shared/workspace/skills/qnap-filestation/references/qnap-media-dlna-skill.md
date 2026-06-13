@@ -10,7 +10,7 @@
 
 > 触发媒体库扫描，更新媒体索引。
 
-```
+```bash
 GET ?func=scan_media_library
   &sid=${sid}
   &type=${0/1/2}    # 0=全部；1=照片；2=视频；3=音乐
@@ -23,7 +23,7 @@ GET ?func=scan_media_library
 
 ### 2. 获取媒体库扫描状态（get_media_library_status）
 
-```
+```bash
 GET ?func=get_media_library_status
   &sid=${sid}
 ```
@@ -44,7 +44,7 @@ GET ?func=get_media_library_status
 
 ### 3. 添加媒体文件夹（add_media_folder）
 
-```
+```bash
 GET ?func=add_media_folder
   &sid=${sid}
   &path=${文件夹路径}
@@ -53,7 +53,7 @@ GET ?func=add_media_folder
 
 ### 4. 移除媒体文件夹（remove_media_folder）
 
-```
+```bash
 GET ?func=remove_media_folder
   &sid=${sid}
   &path=${文件夹路径}
@@ -66,7 +66,7 @@ GET ?func=remove_media_folder
 
 ### 1. 获取 DLNA 状态（get_dlna_status）
 
-```
+```bash
 GET ?func=get_dlna_status
   &sid=${sid}
 ```
@@ -89,7 +89,7 @@ GET ?func=get_dlna_status
 
 ### 2. 启用/禁用 DLNA（set_dlna_status）
 
-```
+```bash
 GET ?func=set_dlna_status
   &sid=${sid}
   &enabled=${0/1}
@@ -98,7 +98,7 @@ GET ?func=set_dlna_status
 
 ### 3. 刷新 DLNA 内容（refresh_dlna）
 
-```
+```bash
 GET ?func=refresh_dlna
   &sid=${sid}
 ```
@@ -109,7 +109,7 @@ GET ?func=refresh_dlna
 
 ### 1. 创建转码任务（create_transcode）
 
-```
+```bash
 GET ?func=create_transcode
   &sid=${sid}
   &source_path=${视频完整路径}
@@ -148,7 +148,7 @@ GET ?func=create_transcode
 
 ### 2. 查询转码进度（get_transcode_status）
 
-```
+```bash
 GET ?func=get_transcode_status
   &sid=${sid}
   &task_id=${task_id}
@@ -172,7 +172,7 @@ GET ?func=get_transcode_status
 
 ### 3. 取消转码（cancel_transcode）
 
-```
+```bash
 GET ?func=cancel_transcode
   &sid=${sid}
   &task_id=${task_id}
@@ -180,7 +180,7 @@ GET ?func=cancel_transcode
 
 ### 4. 列出转码任务（list_transcode）
 
-```
+```bash
 GET ?func=list_transcode
   &sid=${sid}
   &status=${all/running/finish/error}
@@ -194,7 +194,7 @@ GET ?func=list_transcode
 
 ### 1. 读取文本文件（read_text_file）
 
-```
+```bash
 GET ?func=read_text_file
   &sid=${sid}
   &path=${文本文件完整路径}
@@ -219,7 +219,7 @@ GET ?func=read_text_file
 
 ### 2. 写入文本文件（write_text_file）
 
-```
+```bash
 POST ?func=write_text_file
   &sid=${sid}
   &path=${文本文件完整路径}
@@ -237,7 +237,7 @@ POST Body:
 
 ### 3. 创建新文本文件（create_text_file）
 
-```
+```bash
 POST ?func=create_text_file
   &sid=${sid}
   &path=${目标目录}
@@ -260,7 +260,7 @@ POST Body:
 
 ### 4. 获取支持的字符编码（get_text_encoding）
 
-```
+```bash
 GET ?func=get_text_encoding
   &sid=${sid}
   &path=${文件路径}      # 自动检测该文件的编码

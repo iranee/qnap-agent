@@ -99,7 +99,7 @@ base64.b64encode(password.encode('utf-8'))
 
 ## 快速决策树
 
-```
+```text
 用户任务是什么？
   ├── 系统信息/状态查询 → qnap-knowledge/qnap-system-skill.md
   ├── 存储/RAID 查询 → qnap-knowledge/qnap-storage-skill.md + qnap-raid-skill.md

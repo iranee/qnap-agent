@@ -9,7 +9,7 @@
 > 使用 HTTP Multipart POST 上传单个文件。
 
 ### 请求
-```
+```bash
 POST http://IP:8080/cgi-bin/filemanager/utilRequest.cgi?func=upload&sid=${sid}
 
 Content-Type: multipart/form-data
@@ -63,7 +63,7 @@ def upload_file(host, sid, local_path, dest_path, overwrite=False):
 > 适合大文件上传，分多个块传输，支持断点续传。
 
 ### 第一步：获取上传 Token（get_upload_id）
-```
+```bash
 GET ?func=get_upload_id
   &sid=${sid}
   &filename=${文件名}
@@ -84,7 +84,7 @@ GET ?func=get_upload_id
 ```
 
 ### 第二步：分块上传（upload_chunk）
-```
+```bash
 POST ?func=upload_chunk&sid=${sid}
 
 Content-Type: multipart/form-data
@@ -109,7 +109,7 @@ Content-Type: multipart/form-data
 ```
 
 ### 第三步：确认完成（finish_upload）
-```
+```bash
 GET ?func=finish_upload
   &sid=${sid}
   &upload_id=${upload_id}
@@ -174,7 +174,7 @@ def chunked_upload(host, sid, local_path, dest_path, overwrite=False):
 ## 3. 文件下载（download）
 
 ### 方式一：直接下载（URL 方式）
-```
+```bash
 GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi
   ?func=download
   &sid=${sid}
@@ -187,7 +187,7 @@ GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi
 > 此接口直接返回文件的二进制内容（文件流），适合直接在浏览器中触发下载或 requests 流式接收。
 
 ### 方式二：获取下载链接 ID（get_download_link）
-```
+```bash
 GET ?func=get_download_link
   &sid=${sid}
   &source_total=${数量}
@@ -206,7 +206,7 @@ GET ?func=get_download_link
 ```
 
 ### 查询下载状态（get_download_status）
-```
+```bash
 GET ?func=get_download_status
   &sid=${sid}
   &link_id=${link_id}
@@ -254,7 +254,7 @@ def download_file(host, sid, remote_path, local_save_path):
 ## 4. 图片缩略图（thumbnail）
 
 ### 请求
-```
+```bash
 GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi
   ?func=thumbnail
   &sid=${sid}
@@ -280,7 +280,7 @@ GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi
 ## 5. 视频缩略图（video_thumbnail）
 
 ### 请求
-```
+```bash
 GET ?func=video_thumbnail
   &sid=${sid}
   &path=${视频完整路径}
@@ -293,7 +293,7 @@ GET ?func=video_thumbnail
 ## 6. PDF 缩略图（pdf_thumbnail）
 
 ### 请求
-```
+```bash
 GET ?func=pdf_thumbnail
   &sid=${sid}
   &path=${PDF完整路径}
@@ -308,7 +308,7 @@ GET ?func=pdf_thumbnail
 > 获取媒体文件的详细元数据（音视频时长、分辨率、编码等）。
 
 ### 请求
-```
+```bash
 GET ?func=media_info
   &sid=${sid}
   &path=${媒体文件路径}
@@ -336,7 +336,7 @@ GET ?func=media_info
 ## 8. 文件属性扩展（property）
 
 ### 请求
-```
+```bash
 GET ?func=property
   &sid=${sid}
   &path=${完整路径}

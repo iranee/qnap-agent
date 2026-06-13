@@ -98,7 +98,7 @@ grep -A 20 '^\[<共享名>\]' /etc/config/smb.conf
 ```
 
 **问题：Word/Excel 文件提示"Access Denied"（论坛高频问题）**
-```
+```text
 原因：Office 文件在保存时需要创建临时文件，
       如果 Samba 配置了 "oplocks" 或 Windows ACL 有冲突，
       会出现此问题。
@@ -183,7 +183,7 @@ ss -tlnp | grep -E ':80|:443|:8080'
 ```
 
 **WebDAV 访问地址格式：**
-```
+```text
 http://<NAS_IP>:8080/WebDAV/<共享名>/
 https://<NAS_IP>/WebDAV/<共享名>/
 ```
@@ -194,7 +194,7 @@ https://<NAS_IP>/WebDAV/<共享名>/
 
 ### 6.1 QNAP 权限体系说明
 
-```
+```text
 QTS 权限层次（从高到低）：
 1. 共享文件夹权限（QTS ACL）→ 控制谁可以访问整个共享
 2. 文件系统权限（POSIX/Windows ACL）→ 控制文件/目录级别访问
@@ -229,7 +229,7 @@ tail -30 /var/log/messages | grep -iE 'denied|access|permission|<用户名>'
 ## 七、macOS 连接 QNAP 常见问题
 
 **问题：Finder 中 NAS 不显示**
-```
+```text
 原因：SMB 网络发现（Bonjour/mDNS）相关问题
 解决：
 1. Finder → 前往 → 连接到服务器 → 输入 smb://NAS_IP/共享名

@@ -30,7 +30,7 @@ description: QNAP QTS HTTP API 身份验证技能包。当需要与 QNAP NAS 进
 ### 请求命令（两种方式）
 
 **方式一：Base64 编码密码**
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &pwd=${encode_string}          # Base64编码后的密码
@@ -47,7 +47,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 ```
 
 **方式二：明文密码（仅适用于本机 127.0.0.1 调用）**
-```
+```bash
 GET http://127.0.0.1:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &plain_pwd=${password}         # 明文密码
@@ -60,7 +60,7 @@ GET http://127.0.0.1:8080/cgi-bin/authLogin.cgi
 | 参数 | 必填 | 说明 |
 |------|------|------|
 | `user` | 是 | 登录用户名 |
-| `pwd` | 是（方式一）| Base64编码密码。若密码为"admin"，编码后为`YWRtaW4%3D` |
+| `pwd` | 是（方式一）| Base64编码密码，例如密码 `hello` → Base64 为 `aGVsbG8=` |
 | `plain_pwd` | 是（方式二）| 明文密码，仅本机调用时可用 |
 | `remme` | 否 | `1`=返回qtoken；`0`=清除qtoken |
 | `renew` | 否 | `1`=重新生成qtoken并返回；`0`=不返回 |
@@ -122,12 +122,14 @@ GET http://127.0.0.1:8080/cgi-bin/authLogin.cgi
 
 ### 完整示例
 
-```
-# 实际密码为 "admin" → Base64编码后为 YWRtaW4=，URL编码后为 YWRtaW4%3D
-GET http://192.168.1.100:8080/cgi-bin/authLogin.cgi?user=admin&pwd=YWRtaW4%3D&remme=1
+> ⚠️ 以下示例使用 QNAP 出厂默认账号密码（`admin`/`admin`）仅作格式演示，**请勿在实际部署中使用默认密码**。实际使用时替换为真实用户名和 Base64 编码后的密码。
 
-# 本机明文密码登录（picoclaw 内网调用推荐方式）
-GET http://127.0.0.1:8080/cgi-bin/authLogin.cgi?plain_pwd=admin&user=admin&remote_ip=192.168.1.200&device=picoclaw
+```bash
+# 示例：用户名 <YOUR_USER>，密码 Base64 编码后填入 pwd 参数
+GET http://192.168.1.100:8080/cgi-bin/authLogin.cgi?user=<YOUR_USER>&pwd=<BASE64_PWD>&remme=1
+
+# 本机明文密码登录（仅限 127.0.0.1 内网调用）
+GET http://127.0.0.1:8080/cgi-bin/authLogin.cgi?plain_pwd=<YOUR_PASSWORD>&user=<YOUR_USER>&remote_ip=192.168.1.200&device=picoclaw
 ```
 
 ---
@@ -138,7 +140,7 @@ GET http://127.0.0.1:8080/cgi-bin/authLogin.cgi?plain_pwd=admin&user=admin&remot
 使用已保存的 qtoken 换取新的 sid，适合无需每次输入密码的长期运行 agent。
 
 ### 请求命令
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &qtoken=${qtoken}
@@ -184,7 +186,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 与标准登录相同，但返回值中包含 `need_2sv=1`，表示需要继续第二步。
 
 **请求**
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &pwd=${encode_string}
@@ -220,7 +222,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 ### 3.2 第二步：安全码验证
 
 **请求**
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &pwd=${encode_string}
@@ -269,7 +271,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 ### 3.3 发送应急邮件（lost_phone=1 时）
 
 **请求**
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &pwd=${encode_string}
@@ -290,7 +292,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 ### 3.4 获取安全问题（lost_phone=2 时）
 
 **请求**
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &pwd=${encode_string}
@@ -316,7 +318,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 ### 3.5 安全问题验证
 
 **请求**
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi
   ?user=${username}
   &pwd=${encode_string}
@@ -345,7 +347,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi
 验证 sid 是否有效，并获取设备详细信息。
 
 ### 请求命令
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogin.cgi?sid=${sid}
 ```
 
@@ -388,7 +390,7 @@ GET http://IP:8080/cgi-bin/authLogin.cgi?sid=${sid}
 ## 5. 退出登录（Logout）
 
 ### 请求命令
-```
+```bash
 GET http://IP:8080/cgi-bin/authLogout.cgi?sid=${sid}
 ```
 
@@ -417,7 +419,7 @@ GET http://IP:8080/cgi-bin/authLogout.cgi?sid=${sid}
 
 ### 认证策略选择
 
-```
+```text
 场景一：短期任务（推荐）
   → 每次任务开始时用 plain_pwd 本机登录 → 获取 sid → 执行操作 → 退出
 
@@ -545,7 +547,7 @@ class QNAPAuth:
 
 除了通过 `authLogin.cgi?sid=${sid}` 验证外，也可使用 File Manager 接口：
 
-```
+```bash
 GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi?func=check_sid&sid=${sid}
 ```
 

@@ -8,7 +8,7 @@
 
 ### 1. 发起搜索（search）
 
-```
+```bash
 GET ?func=search
   &sid=${sid}
   &source_path=${搜索起始路径}     # 例：/share/homes
@@ -54,7 +54,7 @@ GET ?func=search
 ```
 
 ### 查询搜索结果（get_search_status）
-```
+```bash
 GET ?func=get_search_status
   &sid=${sid}
   &pid=${pid}
@@ -84,7 +84,7 @@ GET ?func=get_search_status
 ```
 
 ### 取消搜索（cancel_search）
-```
+```bash
 GET ?func=cancel_search
   &sid=${sid}
   &pid=${pid}
@@ -134,7 +134,7 @@ for r in results:
 
 ### 1. 创建压缩任务（compress）
 
-```
+```bash
 GET ?func=compress
   &sid=${sid}
   &source_total=${数量}
@@ -183,7 +183,7 @@ GET ?func=compress
 ```
 
 ### 查询压缩进度（get_compress_status）
-```
+```bash
 GET ?func=get_compress_status
   &sid=${sid}
   &pid=${pid}
@@ -204,7 +204,7 @@ GET ?func=get_compress_status
 ```
 
 ### 取消压缩（cancel_compress）
-```
+```bash
 GET ?func=cancel_compress
   &sid=${sid}
   &pid=${pid}
@@ -216,7 +216,7 @@ GET ?func=cancel_compress
 
 ### 1. 列出压缩包内容（list_extract）
 
-```
+```bash
 GET ?func=list_extract
   &sid=${sid}
   &path=${压缩包完整路径}
@@ -246,7 +246,7 @@ GET ?func=list_extract
 
 ### 2. 执行解压（extract）
 
-```
+```bash
 GET ?func=extract
   &sid=${sid}
   &path=${压缩包完整路径}
@@ -266,7 +266,7 @@ GET ?func=extract
 ```
 
 ### 查询解压进度（get_extract_status）
-```
+```bash
 GET ?func=get_extract_status
   &sid=${sid}
   &pid=${pid}
@@ -288,7 +288,7 @@ GET ?func=get_extract_status
 ```
 
 ### 取消解压（cancel_extract）
-```
+```bash
 GET ?func=cancel_extract
   &sid=${sid}
   &pid=${pid}
@@ -299,7 +299,7 @@ GET ?func=cancel_extract
 ## 四、图片旋转（rotate_image）
 
 ### 请求
-```
+```bash
 GET ?func=rotate_image
   &sid=${sid}
   &path=${图片完整路径}

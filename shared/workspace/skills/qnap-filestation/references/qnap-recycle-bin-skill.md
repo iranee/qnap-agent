@@ -9,7 +9,7 @@
 
 ## 回收站工作原理
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      文件删除决策树                           │
 │                                                             │
@@ -42,7 +42,7 @@
 > 列出所有共享文件夹中的回收站内容。
 
 ### 请求
-```
+```bash
 GET ?func=get_tree
   &sid=${sid}
   &node=recycle_root          # 固定值，指定回收站根节点
@@ -81,7 +81,7 @@ GET ?func=get_tree
 > 列出某个共享文件夹回收站中的具体文件。
 
 ### 请求
-```
+```bash
 GET ?func=get_list
   &sid=${sid}
   &is_iso=0
@@ -118,7 +118,7 @@ GET ?func=get_list
 > 将回收站中的文件/文件夹恢复到指定位置。
 
 ### 请求
-```
+```bash
 GET ?func=recycle_bin_recovery
   &sid=${sid}
   &path=${回收站中的文件路径}      # 例：/share/homes/.recycle/旧文档.docx
@@ -126,7 +126,7 @@ GET ?func=recycle_bin_recovery
 ```
 
 ### 批量恢复（多个文件）
-```
+```bash
 GET ?func=recycle_bin_recovery
   &sid=${sid}
   &path0=/share/homes/.recycle/file1.txt
@@ -144,7 +144,7 @@ GET ?func=recycle_bin_recovery
 ```
 
 ### 查询恢复进度
-```
+```bash
 GET ?func=get_recycle_bin_recovery_status
   &sid=${sid}
   &pid=${pid}
@@ -169,7 +169,7 @@ GET ?func=get_recycle_bin_recovery_status
 
 ## 4. 取消恢复操作（cancel_recycle_bin_recovery）
 
-```
+```bash
 GET ?func=cancel_recycle_bin_recovery
   &sid=${sid}
   &pid=${pid}
@@ -187,7 +187,7 @@ GET ?func=cancel_recycle_bin_recovery
 > 清空指定共享文件夹的回收站内容。执行后**不可恢复**，请谨慎使用。
 
 ### 请求
-```
+```bash
 GET ?func=clean_recyclebin
   &sid=${sid}
   &path=${共享文件夹路径}          # 例：/share/homes（不是 .recycle 路径）
@@ -211,7 +211,7 @@ GET ?func=clean_recyclebin
 > QTS 4.4.1+ 支持。一次性清空所有共享文件夹的回收站。
 
 ### 请求
-```
+```bash
 GET ?func=empty_all_recyclebin
   &sid=${sid}
 ```
@@ -234,7 +234,7 @@ GET ?func=empty_all_recyclebin
 > 查询各共享文件夹的回收站启用情况与占用统计。
 
 ### 请求
-```
+```bash
 GET ?func=get_recyclebin_status
   &sid=${sid}
   &path=${共享文件夹路径}          # 可选，不传则返回所有

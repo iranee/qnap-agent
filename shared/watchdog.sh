@@ -26,19 +26,23 @@ fi
 APP_ROOT="${QPKG_ROOT}/workspace"
 UPDATE_DIR="${QPKG_ROOT}/update"
 BACKUP_DIR="${QPKG_ROOT}/backup"
-BINARY_PATH="${APP_ROOT}/picoclaw"
-LAUNCHER_PATH="${APP_ROOT}/picoclaw-launcher"
+BINARY_PATH="${QPKG_ROOT}/picoclaw"
+LAUNCHER_PATH="${QPKG_ROOT}/picoclaw-launcher"
 PIDFILE="${QPKG_ROOT}/run/qnap-agent.pid"
 SERVICE_SCRIPT="${QPKG_ROOT}/qnap-agent.sh"
 LOG="${QPKG_ROOT}/log/watchdog.log"
 
 CHECK_INTERVAL=300   # 5 分钟：升级包扫描间隔
 HEALTH_INTERVAL=60   # 1 分钟：健康检查间隔
+MAX_UPGRADE_FAILS=2  # 连续验证失败次数上限，超过则自动清除损坏文件
 
 LOG_MAX_BYTES=10485760   # 10 MB
 LOG_KEEP_LINES=1000
 
 mkdir -p "${UPDATE_DIR}" "${BACKUP_DIR}"
+
+GW_PORT=$(jq -r '.gateway.port // empty' "${APP_ROOT}/config.json" 2>/dev/null)
+[ -z "${GW_PORT}" ] && GW_PORT=18790
 
 log() {
     # 日志超过 LOG_MAX_BYTES 时保留最后 LOG_KEEP_LINES 行
@@ -50,13 +54,15 @@ log() {
                 && mv "${tmp}" "${LOG}"
         fi
     fi
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] [watchdog] $2" | tee -a "${LOG}"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] [watchdog] $2" >> "${LOG}"
 }
 
 check_service_health() {
     [ -f "${PIDFILE}" ] || return 1
     pid=$(cat "${PIDFILE}" 2>/dev/null)
-    [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null
+    [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null || return 1
+    wget -q -O /dev/null --timeout=5 "http://127.0.0.1:${GW_PORT}/health" 2>/dev/null
+    return $?
 }
 
 auto_restart_if_dead() {
@@ -171,6 +177,15 @@ perform_upgrade() {
     ver_output=$("${new_bin}" version 2>&1)
     if [ $? -ne 0 ]; then
         log "ERROR" "新版 picoclaw 验证失败. 真实报错: ${ver_output}"
+        # 累计验证失败次数
+        _fc=0
+        [ -f "${UPDATE_DIR}/.fail_count" ] && _fc=$(cat "${UPDATE_DIR}/.fail_count" 2>/dev/null || echo 0)
+        _fc=$((_fc + 1))
+        echo "${_fc}" > "${UPDATE_DIR}/.fail_count"
+        if [ "${_fc}" -ge "${MAX_UPGRADE_FAILS}" ]; then
+            log "ERROR" "连续 ${_fc} 次验证失败，判定为损坏的升级包，自动清除 update/ 目录"
+            clean_update_dir
+        fi
         return 1
     fi
 
@@ -204,6 +219,8 @@ perform_upgrade() {
     fi
 
     clean_update_dir
+    # 验证通过，清除失败计数
+    rm -f "${UPDATE_DIR}/.fail_count"
 
     log "INFO" "重启主服务..."
     "${SERVICE_SCRIPT}" start
@@ -213,7 +230,8 @@ perform_upgrade() {
     else
         log "ERROR" "升级后服务启动失败，执行回滚..."
         cp "${BACKUP_DIR}/picoclaw.bak"          "${BINARY_PATH}"   2>/dev/null
-        cp "${BACKUP_DIR}/picoclaw-launcher.bak" "${LAUNCHER_PATH}" 2>/dev/null
+        [ -f "${BACKUP_DIR}/picoclaw-launcher.bak" ] && \
+            cp "${BACKUP_DIR}/picoclaw-launcher.bak" "${LAUNCHER_PATH}" 2>/dev/null
         chmod +x "${BINARY_PATH}" "${LAUNCHER_PATH}" 2>/dev/null
         "${SERVICE_SCRIPT}" start
         log "WARN" "已回滚至备份版本"
@@ -236,6 +254,8 @@ if [ "$1" = "upgrade" ]; then
 fi
 
 log "INFO" "看门狗启动，监控目录: ${UPDATE_DIR}，检查间隔: ${CHECK_INTERVAL}s / 健康检查: ${HEALTH_INTERVAL}s"
+
+trap 'log "INFO" "看门狗收到终止信号，退出"; exit 0' TERM INT
 
 LAST_CHECK=0
 

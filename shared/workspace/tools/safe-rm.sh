@@ -24,9 +24,9 @@
 # ────────────────────────────────────────
 #
 #   /share/.qpkg/qnap-agent/        ← AGENT_HOME（插件根目录）
+#   ├── picoclaw                    ← 二进制
+#   ├── picoclaw-launcher           ← 二进制
 #   ├── workspace/                  ← PICOCLAW_DIR
-#   │   ├── picoclaw                ← 二进制
-#   │   ├── picoclaw-launcher       ← 二进制
 #   │   └── tools/
 #   │       └── safe-rm.sh          ← 本脚本
 #   └── tmp/
@@ -150,8 +150,8 @@ find_share_root() {
     local candidate name
     case "$abs" in
         /share/CACHEDEV*_DATA/*/*)
-            # 路径可能是物理路径（/share/CACHEDEV2_DATA/共享文档/...）
-            # 或已经过 readlink-f 解析的路径（/share/CACHEDEV2_DATA/共享文档/...）
+            # 路径可能是物理路径（/share/CACHEDEV2_DATA/HAMRAH/...）
+            # 或已经过 readlink-f 解析的路径（/share/CACHEDEV2_DATA/HAMRAH/...）
             # 需要判断第二层目录名是否为软链接，从而确定共享文件夹
             candidate=$(echo "$abs" | sed 's|\(/share/CACHEDEV[^/]*_DATA/[^/]*\)/.*|\1|')
             name=$(basename "$candidate")
@@ -162,15 +162,15 @@ find_share_root() {
             fi
             ;;
         /share/*/*)
-            # 支持通过软链接名直接访问的路径，如 /share/共享文档/...
-            # 软链接可能指向相对路径（如 CACHEDEV2_DATA/共享文档）或绝对路径
+            # 支持通过软链接名直接访问的路径，如 /share/HAMRAH/...
+            # 软链接可能指向相对路径（如 CACHEDEV2_DATA/HAMRAH）或绝对路径
             # readlink -f 会解析软链接到完整路径，需从中提取共享根目录
             local first_part real_path share_name
             first_part=$(echo "$abs" | sed 's|\(/share/[^/]*\)/.*|\1|')
             if [ -L "$first_part" ]; then
                 real_path=$(readlink -f "$first_part" 2>/dev/null)
                 # 从 real_path 提取共享根目录（/share/<name>）
-                # real_path 可能是 /share/CACHEDEV2_DATA/共享文档 或相对路径 CACHEDEV2_DATA/共享文档
+                # real_path 可能是 /share/CACHEDEV2_DATA/HAMRAH 或相对路径 CACHEDEV2_DATA/HAMRAH
                 share_name=$(basename "$first_part")
                 # 构造标准格式的共享根路径
                 if echo "$real_path" | grep -q '^/share/'; then

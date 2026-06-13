@@ -12,7 +12,7 @@ description: QNAP NAS 安全加固、勒索病毒（Deadbolt/QLocker）应急处
 
 ## 一、安全基本原则
 
-```
+```text
 QNAP NAS 的最大安全威胁来自公网暴露。
 不直接将 NAS 管理端口暴露到公网 = 规避 90% 的攻击风险。
 
@@ -86,7 +86,7 @@ ss -ulnp
 
 **推荐方案（按安全性从高到低）：**
 
-```
+```text
 1. Tailscale QPKG（App Center → Communications → Tailscale）
    → 零配置，无需端口转发，基于 WireGuard，个人免费
    
@@ -112,7 +112,7 @@ ss -ulnp
 
 ### 4.2 立即行动（发现后第一时间）
 
-```
+```text
 顺序不能错：
 1. 断开 NAS 与互联网的连接（拔网线或在路由器上隔离）
    → 保持局域网连通，以便后续操作
@@ -123,7 +123,7 @@ ss -ulnp
 
 ### 4.3 通过备用 URL 访问 QTS（绕过勒索页面）
 
-```
+```text
 https://NAS_IP/cgi-bin/index.cgi
 http://NAS_IP:8080/cgi-bin/index.cgi
 ```
@@ -139,7 +139,7 @@ kill -9 <PID>
 
 ### 4.5 有备份情况下的完整恢复步骤
 
-```
+```text
 1. 通过备用 URL 登录 QTS
 2. myQNAPcloud → 禁用 UPnP 端口映射
 3. 应用中心 → 更新所有应用（尤其是 Malware Remover）

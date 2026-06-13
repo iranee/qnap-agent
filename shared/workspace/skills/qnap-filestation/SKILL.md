@@ -1,7 +1,7 @@
 ---
 name: qnap-filestation
 description: >
-  QNAP QTS File Station HTTP API 完整技能包（中文版）。
+  QNAP QTS File Station HTTP API 完整技能包。
   涵盖文件/文件夹的创建、重命名、复制、移动、安全删除（回收站）、上传下载、
   ACL权限管理、共享链接、高级搜索、媒体转码、DLNA、文字编辑器、存储信息、ISO挂载等所有功能。
   当 picoclaw agent 需要对 QNAP NAS 进行任何文件操作时必须使用此技能包。
@@ -70,7 +70,7 @@ references:
 
 ## 通用请求规范
 
-```
+```bash
 GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi
   ?func=${function_name}
   &sid=${sid}
@@ -96,7 +96,7 @@ GET http://IP:8080/cgi-bin/filemanager/utilRequest.cgi
 
 ## picoclaw Agent 核心安全原则
 
-```
+```text
 删除文件时，永远不使用 force=1 参数！
 
   func=delete（无 force 或 force=0） → 进入网络回收站，可以恢复  ✅
@@ -125,7 +125,7 @@ from xml.etree import ElementTree as ET
 # Step 1: 登录获取 sid
 resp = requests.get("http://NAS-IP:8080/cgi-bin/authLogin.cgi", params={
     "user": "admin",
-    "pwd": base64.b64encode("your_password".encode()).decode(),
+    "pwd": base64.b64encode("<YOUR_PASSWORD>".encode()).decode(),
     "client_app": "picoclaw",
 })
 sid = ET.fromstring(resp.text).findtext("authSid")

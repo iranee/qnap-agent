@@ -7,7 +7,7 @@
 
 ## 一、整体架构设计
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                      picoclaw Agent 架构                         │
 │                                                                 │
@@ -579,7 +579,7 @@ if __name__ == '__main__':
 QNAP_HOST=192.168.1.100
 QNAP_PORT=8080
 QNAP_USER=admin
-QNAP_PASS=your_password          # 首次登录后可删除此行，改用 qtoken
+QNAP_PASS=<YOUR_PASSWORD>          # 首次登录后可删除此行，改用 qtoken
 QNAP_QTOKEN=                     # 首次登录后自动填入
 
 # 安全策略

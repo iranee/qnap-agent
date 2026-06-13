@@ -181,7 +181,7 @@ ss -tlnp | grep :32400
 ```
 
 **Plex 在 QNAP 上的注意事项：**
-```
+```text
 - Plex 硬件转码（Hardware Transcoding）需要 Plex Pass 订阅
 - QNAP x86 NAS 通常支持 Intel Quick Sync 硬件转码
 - ARM NAS 一般不支持 Plex 硬件转码

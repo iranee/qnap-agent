@@ -7,7 +7,7 @@
 ## 1. 获取文件/文件夹列表（get_list）
 
 ### 请求
-```
+```bash
 GET ?func=get_list
   &sid=${sid}
   &is_iso=${0/1}            # 0=普通文件系统；1=ISO挂载内容
@@ -97,7 +97,7 @@ GET ?func=get_list
 > 递归获取目录树，适合构建文件夹选择器。
 
 ### 请求
-```
+```bash
 GET ?func=get_tree
   &sid=${sid}
   &node=${节点类型}           # share_root / share / recycle_root / iso
@@ -138,7 +138,7 @@ GET ?func=get_tree
 > 异步计算，适合大文件夹。
 
 ### 请求
-```
+```bash
 GET ?func=get_total_size
   &sid=${sid}
   &source_total=${数量}
@@ -154,7 +154,7 @@ GET ?func=get_total_size
 ```
 
 ### 查询大小计算进度
-```
+```bash
 GET ?func=get_total_size_status
   &sid=${sid}
   &pid=${pid}
@@ -181,7 +181,7 @@ GET ?func=get_total_size_status
 > 列出 NAS 上的所有用户，用于 ACL 权限设置。
 
 ### 请求
-```
+```bash
 GET ?func=get_user_list
   &sid=${sid}
   &type=${0/1/2}     # 0=本地用户；1=本地组；2=全部
@@ -218,7 +218,7 @@ GET ?func=get_user_list
 > 返回媒体库中已配置的媒体文件夹路径。
 
 ### 请求
-```
+```bash
 GET ?func=get_media_folder
   &sid=${sid}
   &type=${类型}    # photo / video / music / all

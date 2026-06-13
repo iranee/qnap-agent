@@ -120,7 +120,7 @@ ls -la /opt/ 2>/dev/null | head -20
 
 ### 4.1 方法A：通过 App Center 手动安装（推荐，最简单）
 
-```
+```text
 # Step 1：下载 Entware QPKG
 下载地址：https://bin.entware.net/other/Entware_1.03std.qpkg
 （或从 myqnap.org 或 qnapclub.eu 搜索 Entware）

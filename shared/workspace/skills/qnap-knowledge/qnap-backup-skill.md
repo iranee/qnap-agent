@@ -12,7 +12,7 @@ description: QNAP NAS 备份策略、HBS3（Hybrid Backup Sync）使用、快照
 
 ## ⚠️ 备份第一原则
 
-```
+```text
 RAID 不是备份！
 RAID 只防磁盘硬件故障，不防：
 - 勒索病毒（Deadbolt 等会同时加密所有盘）
@@ -57,7 +57,7 @@ find /share -path "*/HybridBackup/log/*" -name "*.log" 2>/dev/null | head -5
 
 ## 三、3-2-1 备份策略配置建议
 
-```
+```text
 推荐策略（家庭/小型企业）：
 
 副本 1：NAS 本身（生产数据）
@@ -129,7 +129,7 @@ ls /share/<共享名>/.snapshot/ 2>/dev/null | grep GMT
 ### 6.2 快照注意事项
 
 **论坛用户经验：**
-```
+```text
 - 快照本身不是备份（存在同一物理存储上）
 - 勒索病毒攻击可能不会立即影响快照，给了时间窗口恢复
 - QTS 5.2 安全中心可以在检测到大规模文件加密时自动触发快照
@@ -139,7 +139,7 @@ ls /share/<共享名>/.snapshot/ 2>/dev/null | grep GMT
 
 ### 6.3 从快照恢复（GUI 路径）
 
-```
+```text
 存储与快照管理 → 快照 → 快照库
 → 选择共享文件夹 → 查看快照 → 选择时间点 → 恢复
 ```
@@ -186,7 +186,7 @@ ls /share/External*/  2>/dev/null
 ```
 
 **最佳实践（来自论坛用户）：**
-```
+```text
 1. 连接 USB 存储，等待挂载完成（通常 30 秒内）
 2. 确认挂载：ls /share/USB_*/
 3. 运行 HBS3 备份任务（备份到本地 → 选择 USB 设备）

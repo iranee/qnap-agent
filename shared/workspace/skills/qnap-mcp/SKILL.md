@@ -18,7 +18,7 @@ description: >
 
 它是一个运行在 NAS 本地的 HTTP 服务（端口 8442），通过 shell 脚本直接发 HTTP 请求来调用，和 picoclaw 的 `/list mcp`、`picoclaw mcp add` 这套机制完全无关。
 
-```
+```text
 ❌ 错误思路：用户让我查 NAS 状态 → 我去 config.json 添加 MCP server → 重启
 ✅ 正确思路：用户让我查 NAS 状态 → 直接 sh scripts/mcp_call.sh get_system_info
 ```
@@ -93,7 +93,7 @@ grep '"id":10' "$ALL_OUT" | sed 's/^data: //'
 
 ## 连接流程（必须按顺序）
 
-```
+```text
 GET /sse → 获取 sessionId
     ↓
 POST /message?sessionId=xxx  {"method":"initialize"}

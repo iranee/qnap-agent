@@ -38,7 +38,6 @@ mkdir -p "${QPKG_ROOT}/run" "${QPKG_ROOT}/log" "${PICOCLAW_HOME}"
 
 
 log() {
-    # 日志超过 LOG_MAX_BYTES 时保留最后 LOG_KEEP_LINES 行
     if [ -f "${LOGFILE}" ]; then
         local fsize
         fsize=$(wc -c < "${LOGFILE}" 2>/dev/null || echo 0)
@@ -62,8 +61,39 @@ is_running() {
     return 1
 }
 
+validate_config() {
+    case "${PICOCLAW_CONFIG}" in
+        /root/.picoclaw/*)
+            log "ERROR" "配置文件路径异常 (${PICOCLAW_CONFIG})，疑似安装未完成，使用了系统默认路径，停止启动"
+            return 1
+            ;;
+    esac
+
+    local deny_count
+    deny_count=$(awk '
+        /"custom_deny_patterns"/ { in_section=1 }
+        in_section && /\[/        { in_array=1 }
+        in_array  && /"/          { count++ }
+        in_array  && /\]/         { print count+0; exit }
+    ' "${PICOCLAW_CONFIG}" 2>/dev/null)
+
+    if [ -z "${deny_count}" ]; then
+        deny_count=0
+    fi
+
+    if [ "${deny_count}" -lt 3 ]; then
+        log "ERROR" "安全配置不足: custom_deny_patterns 仅有 ${deny_count} 条规则 (要求至少 3 条)，疑似配置文件不正确，停止启动"
+        return 1
+    fi
+
+    log "INFO" "配置校验通过: 路径正常，custom_deny_patterns 共 ${deny_count} 条规则"
+    return 0
+}
 
 start() {
+    local caller
+    caller=$(get_caller_info)
+    log "INFO" "触发来源: ${caller}"
     if is_running; then
         log "INFO" "服务已在运行中 (PID: $(cat ${PIDFILE}))"
         return 0
@@ -90,18 +120,20 @@ start() {
         return 1
     fi
 
+    if ! validate_config; then
+        return 1
+    fi
+
     log "INFO" "正在启动 QNAP Agent..."
     log "INFO" "启动器: ${LAUNCHER_BIN}"
     log "INFO" "配置文件: ${PICOCLAW_CONFIG}"
     log "INFO" "工作目录: ${PICOCLAW_HOME}"
 
     export TZ=":/etc/localtime"
-    # 启动 launcher（launcher 会自动拉起 picoclaw gateway）
-    # launcher 监听 0.0.0.0:18800，接收来自 QNAP 管理界面的请求
     HOME="${PICOCLAW_HOME}" \
     PICOCLAW_HOME="${PICOCLAW_HOME}" \
     "${LAUNCHER_BIN}" \
-        -host 0.0.0.0 \
+        -public \
         -port 18800 \
         -console \
         -no-browser \
@@ -123,8 +155,9 @@ start() {
 }
 
 stop() {
-    # 若由看门狗升级流程发起调用（WATCHDOG_CALLING=1），跳过 stop_watchdog，
-    # 避免看门狗在升级过程中向自身发送 SIGTERM 导致流程中断。
+    local caller
+    caller=$(get_caller_info)
+    log "INFO" "触发来源: ${caller}"
     if [ "${WATCHDOG_CALLING}" != "1" ]; then
         stop_watchdog
     fi
@@ -154,21 +187,93 @@ stop() {
 }
 
 restart() {
-    stop
-    sleep 2
-    start
+    local caller
+    caller=$(get_caller_info)
+    log "INFO" "触发来源: ${caller}，正在派生独立进程执行重启..."
+
+    export QPKG_ROOT PIDFILE WATCHDOG_PIDFILE LOGFILE PICOCLAW_HOME \
+           LAUNCHER_BIN PICOCLAW_CONFIG WATCHDOG_SCRIPT \
+           INIT_SCRIPT SYSTEM_FILE LAST_INIT_FILE
+    export CALLER_INFO="${caller}"
+
+    local tmpout
+    tmpout="/tmp/qnap-restart-$$.log"
+    : > "${tmpout}"
+
+    setsid sh -c '
+        SOURCED=1 . "'"${QPKG_ROOT}/qnap-agent.sh"'"
+        stop
+        sleep 2
+        start
+    ' >> "${tmpout}" 2>&1 &
+
+    local bg_pid=$!
+    log "INFO" "重启任务已在后台新进程组运行 (PID: ${bg_pid})"
+
+    tail -f "${tmpout}" &
+    local tail_pid=$!
+    wait "${bg_pid}" 2>/dev/null
+    sleep 1        # 让 tail 把最后几行刷完
+    kill "${tail_pid}" 2>/dev/null
+    wait "${tail_pid}" 2>/dev/null
+
+    rm -f "${tmpout}"
+}
+
+get_caller_info() {
+    if [ -n "${CALLER_INFO}" ]; then
+        echo "${CALLER_INFO}"
+        return 0
+    fi
+
+    local pid=$$
+    local caller="unknown"
+    local depth=0
+
+    while [ "${pid}" -gt 1 ] && [ "${depth}" -lt 20 ]; do
+        local comm ppid cmdline
+        comm=$(cat /proc/${pid}/comm 2>/dev/null | tr -d '\n')
+        ppid=$(awk '/^PPid:/{print $2}' /proc/${pid}/status 2>/dev/null)
+        cmdline=$(cat /proc/${pid}/cmdline 2>/dev/null | tr '\0' ' ' | sed 's/ *$//')
+
+        case "${comm}" in
+            sshd)
+                case "${cmdline}" in
+                    *@pts/*|*@notty*)
+                        local who
+                        who="${cmdline#*sshd: }"
+                        caller="ssh(${who})"
+                        break
+                        ;;
+                esac
+                ;;
+            picoclaw*|launcher*)
+                caller="agent(${comm})"
+                break
+                ;;
+            init|s6-svscan|supervise)
+                caller="init.d(${comm})"
+                break
+                ;;
+        esac
+
+        pid="${ppid}"
+        depth=$((depth + 1))
+    done
+
+    echo "${caller}"
 }
 
 status() {
     if is_running; then
         local pid
         pid=$(cat "${PIDFILE}" 2>/dev/null)
-        log "INFO" "服务运行中 (PID: ${pid})"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] 服务运行中 (PID: ${pid})"
         echo "--- 最近日志 ---"
-        tail -10 "${LOGFILE}" 2>/dev/null
+        tail -15 "${LOGFILE}" 2>/dev/null
         return 0
     else
-        log "INFO" "服务未运行"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] 服务未运行"
         return 1
     fi
 }
@@ -183,7 +288,6 @@ start_watchdog() {
         fi
     fi
 
-    # 注意：不传额外参数，$1 由看门狗自身的 upgrade 子命令使用
     "${WATCHDOG_SCRIPT}" >> "${QPKG_ROOT}/log/watchdog.log" 2>&1 &
     echo $! > "${WATCHDOG_PIDFILE}"
     log "INFO" "看门狗已启动 (PID: $(cat ${WATCHDOG_PIDFILE}))"
@@ -199,12 +303,10 @@ stop_watchdog() {
 
     if [ -n "${wpid}" ] && kill -0 "${wpid}" 2>/dev/null; then
         kill "${wpid}" 2>/dev/null
-        # 等待看门狗进程完全退出，避免残留进程与后续操作竞争
         local count=0
         while kill -0 "${wpid}" 2>/dev/null && [ ${count} -lt 10 ]; do
             sleep 1; count=$((count + 1))
         done
-        # 超时后强制终止
         kill -0 "${wpid}" 2>/dev/null && kill -9 "${wpid}" 2>/dev/null
     fi
 
@@ -212,13 +314,70 @@ stop_watchdog() {
     log "INFO" "看门狗已停止"
 }
 
+repair_config() {
+    local tpl="${QPKG_ROOT}/config/config.json.tpl"
+    local cfg="${PICOCLAW_HOME}/config.json"
+    local bak="${PICOCLAW_HOME}/config.json.bak"
+
+    echo ""
+    echo "  此操作将覆盖现有 config.json，操作前会自动备份。"
+    echo "  模板来源: ${tpl}"
+    echo "  目标文件: ${cfg}"
+    echo ""
+    printf "  确认执行修复？输入 y 后按回车继续，其他任意键取消: "
+    read answer
+    case "${answer}" in
+        y|Y) ;;
+        *)
+            echo "  已取消，未做任何修改。"
+            return 0
+            ;;
+    esac
+    echo ""
+
+    log "INFO" "=== 开始修复配置文件 ==="
+
+    if [ ! -f "${tpl}" ]; then
+        log "ERROR" "模板文件不存在: ${tpl}，无法修复"
+        return 1
+    fi
+
+    if [ -f "${cfg}" ]; then
+        cp -p "${cfg}" "${bak}"
+        if [ $? -eq 0 ]; then
+            log "INFO" "已备份原配置文件: ${bak}"
+        else
+            log "ERROR" "备份失败，中止修复"
+            return 1
+        fi
+    else
+        log "INFO" "未发现现有 config.json，跳过备份"
+    fi
+
+    cp "${tpl}" "${cfg}"
+    sed "s#__QPKG_ROOT__#${QPKG_ROOT}#g" "${cfg}" > "${cfg}.tmp" && mv "${cfg}.tmp" "${cfg}"
+    if [ $? -eq 0 ]; then
+        log "INFO" "配置文件已从模板重新生成: ${cfg}"
+        log "INFO" "安装路径已替换为: ${QPKG_ROOT}"
+    else
+        log "ERROR" "模板替换失败，尝试从备份还原..."
+        [ -f "${bak}" ] && cp -p "${bak}" "${cfg}"
+        return 1
+    fi
+
+    log "INFO" "=== 配置文件修复完成，请重启服务: $0 restart ==="
+}
+
+[ "${SOURCED}" = "1" ] && return 0
+
 case "$1" in
-    start)   start   ;;
-    stop)    stop    ;;
-    restart) restart ;;
-    status)  status  ;;
+    start)         start          ;;
+    stop)          stop           ;;
+    restart)       restart        ;;
+    status)        status         ;;
+    repair-config) repair_config  ;;
     *)
-        echo "用法: $0 {start|stop|restart|status}"
+        echo "用法: $0 {start|stop|restart|status|repair-config}"
         exit 1
         ;;
 esac

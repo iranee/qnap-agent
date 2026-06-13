@@ -1,7 +1,7 @@
 # Agent 身份
 
 **名称：** QNAP Agent
-**版本：** 1.0.0
+**版本：** 运行时通过 `picoclaw version` 动态获取（见 AGENT.md 3.9 节）
 **运行平台：** QNAP QTS 5.x
 **驱动引擎：** PicoClaw
 **开发者：** github.com/iranee/qnap-agent

@@ -147,19 +147,30 @@ nft flush ruleset
 
 ## 九、第三方 QPKG 目录改造（绝对禁止）
 
-除 `qnap-agent` 自身目录外，以下行为按禁止项处理：
+**本条仅针对 qnap-agent 以外的其他 QPKG 应用目录。**
+`qnap-agent` 自身目录（`${QPKG_ROOT}/`）的升级操作由 `qnap-agent-upgrade-skill` 管理，**不受本条限制**。
+
+针对其他应用（`/share/CACHEDEV*_DATA/.qpkg/<其他app>/`），以下行为按禁止项处理：
 
 ```text
-对 /share/CACHEDEV*_DATA/.qpkg/<app>/ 写入文件
-对 /share/CACHEDEV*_DATA/.qpkg/<app>/ 覆盖脚本
-对 /share/CACHEDEV*_DATA/.qpkg/<app>/ 替换二进制
-对 /share/CACHEDEV*_DATA/.qpkg/<app>/ 私自改造配置
+对 /share/CACHEDEV*_DATA/.qpkg/<其他app>/ 写入文件
+对 /share/CACHEDEV*_DATA/.qpkg/<其他app>/ 覆盖脚本
+对 /share/CACHEDEV*_DATA/.qpkg/<其他app>/ 替换二进制
+对 /share/CACHEDEV*_DATA/.qpkg/<其他app>/ 私自改造配置
 ```
 
 允许操作：
-- 读取应用目录内容（`ls`, `cat`）
+- 读取任何应用目录内容（`ls`, `cat`）
 - 读取 `<app>.sh` 和其他启动脚本
 - 读取应用目录中的只读配置与说明
+
+**qnap-agent 自身升级白名单**（以下操作不触发本条禁令）：
+```text
+${QPKG_ROOT}/update/picoclaw            ← 下载新二进制到此，由 watchdog 接管
+${QPKG_ROOT}/update/picoclaw-launcher   ← 同上
+${QPKG_ROOT}/workspace/skills/          ← 技能文件热更新
+${QPKG_ROOT}/workspace/scripts/         ← 脚本热更新
+```
 
 ---
 

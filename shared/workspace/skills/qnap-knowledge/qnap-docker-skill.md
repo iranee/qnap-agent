@@ -353,7 +353,7 @@ Docker Hub 在国内网络环境访问不稳定，可通过配置镜像源加速
 
 ### 12.1 通过 Container Station GUI 配置（推荐）
 
-```
+```text
 Container Station → 偏好设置 → Registry 服务器
 → 点击"+"添加镜像地址
 → 填入镜像源地址（如 https://mirror.example.com）

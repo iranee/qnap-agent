@@ -7,7 +7,7 @@
 ## 1. 获取文件/文件夹 ACL 权限（get_acl_privilege）
 
 ### 请求
-```
+```bash
 GET ?func=get_acl_privilege
   &sid=${sid}
   &path=${完整路径}
@@ -58,7 +58,7 @@ GET ?func=get_acl_privilege
 ## 2. 设置 ACL 权限（set_acl_privilege）
 
 ### 请求
-```
+```bash
 POST ?func=set_acl_privilege
   &sid=${sid}
   &path=${完整路径}
@@ -98,7 +98,7 @@ POST Body (JSON):
 > 列出所有可分配 ACL 的用户和用户组。
 
 ### 请求
-```
+```bash
 GET ?func=get_user_group_list
   &sid=${sid}
   &path=${完整路径}
@@ -131,7 +131,7 @@ GET ?func=get_user_group_list
 ## 4. 设置文件所有者（set_owner）
 
 ### 请求
-```
+```bash
 GET ?func=set_owner
   &sid=${sid}
   &path=${完整路径}
@@ -149,7 +149,7 @@ GET ?func=set_owner
 
 ## 5. Unix 权限字符串说明
 
-```
+```text
 rwxrwxrwx
 │││││││││└── 其他用户：执行
 ││││││││└─── 其他用户：写

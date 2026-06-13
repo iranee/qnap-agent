@@ -143,7 +143,7 @@ find /share -name "*.facev*" -o -name "face_*.db" 2>/dev/null | head -10
 
 ### 5.2 QVR 初始配置路径
 
-```
+```text
 App Center → 安装 QVR Pro
 QVR Pro → 相机管理 → 添加相机
 ```
